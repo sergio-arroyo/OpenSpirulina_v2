@@ -58,16 +58,6 @@ DHT_Sensor dht_sensors;                                    // Handle all DHT sen
 Lux_Sensor lux_sensor;                                     // Lux sensor with BH1750
 DO_Sensor  do_sensor;                                      // Sensor 1 [DO] ("Optical Density")
 
-//TODO: Quitar al implantar la instanciacion de DO_Sensor "SIN" parametros iniciales
-/*
-DO_Sensor do_sensor(DO_SENS_ADDR,                         
-                    DO_SENS_R_LED_PIN,
-					DO_SENS_G_LED_PIN,
-					DO_SENS_B_LED_PIN,
-                    DO_SENS_N_SAMP_READ,
-                    DO_SENS_MS_WAIT);                      // Sensor 1 [DO] ("Optical Density")
-*/
-
 File myFile;
 char fileName[SD_MAX_FILENAME_SIZE] = "";                  // Name of file to save data readed from sensors
 
@@ -163,13 +153,6 @@ const option_internet_type option_internet = it_none;      // None | Ethernet | 
 const uint8_t pins_ph[num_pH] = {8};                       // pH Pins (Analog)
 const uint8_t pins_co2[1] = {11};                          // CO2 pin (Analog)//const int pins_co2[num_CO2] = {11};     // CO2 pin (Analog)
 
-//TODO: Quitar al implementar LDR
-/*
-#if option_lux == lux_ldr                                  // Lux sensor with LDR
-const uint8_t ldr_pin = 3;                                 // LDR pin (Analog)
-#endif
-*/
-
 const uint8_t pins_pir[num_PIR] = {};                      // PIR Pins  //S'ha de traure.
 const uint8_t pins_current[num_current_sensor] = {38};     // Current sensor PINs, next: 39,40
 
@@ -232,7 +215,7 @@ float lux;
 float pre_lux;
 
 String last_send;                                          //Last time sended data
-uint16_t loop_count = 0;                 //TODO: Contador de ciclos de lectura
+uint16_t loop_count = 0;           //TODO: Contador de ciclos de lectura
 
 
 // GPRS Modem
@@ -321,17 +304,14 @@ bool detect_PIR(int pin) {
     return (digitalRead(pin) == HIGH);
 }
 
-//TODO: Quitar al implantar Lux_Sensor y LDR
-/* Capture Lux ambient */
-/*
-float capture_lux() {
+/* Capture light ambient with LDR sensor*/
+float capture_LDR() {
     if (option_lux == lux_BH1750)              // Return Lux value with BH1750
         return lux_sensor.readLightLevel();
     else if (option_lux == lux_LDR)            // Return Lux value with LDR
         return analogRead(ldr_pin);
     return 0;
 }
-*/
 
 void sort_array(float* arr, const uint8_t n_samples) {
     float tmp_val;
@@ -1190,11 +1170,8 @@ void loop() {
 		SERIAL_MON.println(F("Getting data.."));
     }
 
-	if (LCD_enabled) {
-		//TODO: Prueba de contador de ciclos de lectura
-		//lcd.print_msg(0, 3, "Getting data..");
+	if (LCD_enabled)
 		lcd.print_msg_val(0, 3, "Getting data.. %d", (int32_t)loop_count);
-	}
 
     /* Capture current depending on the sensor type */
     switch (current_sensors_type) {
@@ -1249,8 +1226,6 @@ void loop() {
         pre_lux = do_sensor.readLightLevel();
         do_sensor.capture_DO(); 
         delay(500);
-		//TODO: [BEBUG] seguimiento error
-		if (DEBUG) SERIAL_MON.println(F("Finalize capture DO sensor"));
     }
     
     // Capture CO2 concentration
