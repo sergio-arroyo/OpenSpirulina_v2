@@ -9,9 +9,11 @@
 
 #include "Load_SD_Config.h"
 
+//TODO: Quitar clase Load_SD_Config y dejar solo clase base "IniFile.h"
+
 /* Contructor class*/
 Load_SD_Config::Load_SD_Config(const char* filename) : IniFile(filename) {
-    
+
 }
 
 /* Open Ini config file and check if it's in correct format */
@@ -29,7 +31,7 @@ bool Load_SD_Config::open_config() {
         SERIAL_MON.print(F("Ini file "));
         SERIAL_MON.print(getFilename());
         SERIAL_MON.print(F(" not valid: "));
-
+        
         return false;
     }
 
@@ -37,7 +39,7 @@ bool Load_SD_Config::open_config() {
 }
 
 /* Load required configuration value from section & key */
-void Load_SD_Config::load_value(const char* section, const char* key, bool &val) {
+void Load_SD_Config::load_bool(const char* section, const char* key, bool &val) {
     SERIAL_MON.print(F("Ini. config: "));
     SERIAL_MON.print(section); SERIAL_MON.print(F(".")); SERIAL_MON.print(key); 
     

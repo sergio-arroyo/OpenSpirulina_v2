@@ -1,15 +1,15 @@
 /**
  * OpenSpirulina http://www.openspirulina.com
  *
- * Autors: Fran Romero
- *         Sergio Arroyo (UOC)
+ * Autors: Sergio Arroyo (UOC)
  * 
- * General methods and functions related to time management (date & time)
+ * DateTime_RTC class used to obtain and control time with RTC
  * 
  */
 #ifndef DATETIME_RTC_h
 #define DATETIME_RTC_h
 
+#include <Arduino.h>
 #include <RTClib.h>
 
 class DateTime_RTC: public RTC_DS3231 {

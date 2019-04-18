@@ -1,38 +1,40 @@
 /**
  * OpenSpirulina http://www.openspirulina.com
  *
- * Autors: Fran Romero
- *         Sergio Arroyo (UOC)
+ * Autors: Sergio Arroyo (UOC)
  * 
  * General methods and functions related to the optical density sensor,
  * designed by OpenSpirulina
  * 
  */
-#include <Arduino.h>
 
 #include "DO_Sensor.h"
 
 
-DO_Sensor::DO_Sensor(uint8_t _addr, uint8_t _R_pin, uint8_t _G_pin, uint8_t _B_pin,
-                     uint8_t _n_samples, uint16_t _ms_wait) : BH1750(_addr) {
-    R_pin       = _R_pin;
-    G_pin       = _G_pin;
-    B_pin       = _B_pin;
-    n_samples   = _n_samples;
-    ms_wait     = _ms_wait;
-    initialized = false;
+DO_Sensor::DO_Sensor() {
+    n_samples    = DO_SENS_N_SAMP_READ;
+    ms_reads     = DO_SENS_MS_READS;
     RGBW_results = {0, 0, 0, 0};
+    initialized  = false;
 }
 
-boolean DO_Sensor::begin(Mode mode) {
-    // If not initialized exit and return false
-    if (!BH1750::begin(mode)) return false;
-    
-    // LEDs pins assign 
-    pinMode(R_pin, OUTPUT); // Red
-    pinMode(G_pin, OUTPUT); // Green
-    pinMode(B_pin, OUTPUT); // Blue
+bool DO_Sensor::begin(uint8_t _addr, uint8_t _R_pin, uint8_t _G_pin, uint8_t _B_pin) {
+    if (initialized) return true;                          // If the sensor already started, return true and not tray more
 
+    // LEDs pins assign
+    R_pin = _R_pin;
+    G_pin = _G_pin;
+    B_pin = _B_pin;
+    pinMode(R_pin, OUTPUT);
+    pinMode(G_pin, OUTPUT);
+    pinMode(B_pin, OUTPUT);
+
+    bh1750_dev = new BH1750(_addr);                        // Instanciate new BH1750 object
+
+    // If not initialized exit and return false
+    if (!bh1750_dev->begin(BH1750::Mode::CONTINUOUS_HIGH_RES_MODE_2))
+        return false;                                      // Measurement at 0.5 lux resolution. Measurement time is approx 120ms.
+    
     initialized = true;
     return true;
 }
@@ -45,15 +47,20 @@ void DO_Sensor::capture_DO() {
     RGBW_results.W_value = capture_White_LED();
 }
 
+/* Capture light value without any led activated */
+const float DO_Sensor::readLightLevel() {
+    return bh1750_dev->readLightLevel();
+}
+
 /* Red light values for DO */
-float DO_Sensor::capture_Red_LED() {
+const float DO_Sensor::capture_Red_LED() {
     digitalWrite(R_pin, HIGH);
-    delay(ms_wait);
+    delay(500);
 
     float iir[n_samples];
     for (uint8_t i=0; i<n_samples; i++) {
-        iir[i] = readLightLevel();                         // Read the BH1750 lux value
-        delay(500);
+        iir[i] = bh1750_dev->readLightLevel();             // Read the BH1750 lux value
+        delay(ms_reads);
     }
     digitalWrite(R_pin, LOW);
 
@@ -61,14 +68,14 @@ float DO_Sensor::capture_Red_LED() {
 }
 
 /* Green light values for DO */
-float DO_Sensor::capture_Green_LED() {
+const float DO_Sensor::capture_Green_LED() {
     digitalWrite(G_pin, HIGH);
-    delay(ms_wait);
+    delay(500);
 
     float iir[n_samples];
     for (uint8_t i=0; i<n_samples; i++) {
-        iir[i] = readLightLevel();
-        delay(500);
+        iir[i] = bh1750_dev->readLightLevel();
+        delay(ms_reads);
     }
 
     digitalWrite(G_pin, LOW);    
@@ -76,14 +83,14 @@ float DO_Sensor::capture_Green_LED() {
 }
 
 /* Blue light values for DO */
-float DO_Sensor::capture_Blue_LED() {
+const float DO_Sensor::capture_Blue_LED() {
     digitalWrite(B_pin, HIGH);
-    delay(ms_wait);
+    delay(500);
 
     float iir[n_samples];
     for (uint8_t i=0; i<n_samples; i++) {
-        iir[i] = readLightLevel();
-        delay(500);
+        iir[i] = bh1750_dev->readLightLevel();
+        delay(ms_reads);
     }
 
     digitalWrite(B_pin, LOW);
@@ -91,16 +98,16 @@ float DO_Sensor::capture_Blue_LED() {
 }
 
 /* White light values for DO */
-float DO_Sensor::capture_White_LED() {
+const float DO_Sensor::capture_White_LED() {
     digitalWrite(R_pin, HIGH);
     digitalWrite(G_pin, HIGH);
     digitalWrite(B_pin, HIGH);
-    delay(ms_wait);
+    delay(500);
 
     float iir[n_samples];
     for (uint8_t i=0; i<n_samples; i++) {
-        iir[i] = readLightLevel();
-        delay(500);
+        iir[i] = bh1750_dev->readLightLevel();
+        delay(ms_reads);
     }
 
     digitalWrite(R_pin, LOW);
@@ -145,12 +152,12 @@ uint8_t DO_Sensor::get_n_samples() {
     return n_samples;
 }
 
-void DO_Sensor::set_ms_wait(const uint16_t _ms_wait) {
-    ms_wait = _ms_wait;
+void DO_Sensor::set_ms_reads(const uint16_t _ms_reads) {
+    ms_reads = _ms_reads;
 }
 
-uint16_t DO_Sensor::get_ms_wait() {
-    return ms_wait;
+uint16_t DO_Sensor::get_ms_reads() {
+    return ms_reads;
 }
 
 bool DO_Sensor::is_init() {

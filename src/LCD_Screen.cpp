@@ -7,7 +7,7 @@
  * General methods and functions related to LCD screen
  * 
  */
-#include <Arduino.h>
+
 #include "LCD_Screen.h"
 
 

@@ -7,9 +7,10 @@
  * General methods and functions related to LCD screen
  * 
  */
-#ifndef LCD_SCREEN_h
-#define LCD_SCREEN_h
+#ifndef LCD_Screen_h
+#define LCD_Screen_h
 
+#include <Arduino.h>
 #include <LiquidCrystal_I2C.h>
 #include "Configuration.h"
 

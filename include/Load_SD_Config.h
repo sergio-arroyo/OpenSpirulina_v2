@@ -22,7 +22,7 @@ public:
 	Load_SD_Config(const char* filename);
 
 	bool open_config();
-	void load_value(const char* section, const char* key, bool &val);
+    void load_bool(const char* section, const char* key, bool &val);
 };
 
 #endif
