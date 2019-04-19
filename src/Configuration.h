@@ -76,9 +76,9 @@
 //===========================================================
 //======================= DHT sensor ========================
 //===========================================================
-const uint8_t DHT_DEF_SENSORS[] =  {32};
-#define DHT_DEF_NUM_SENSORS        1
-#define DHT_DEF_TYPE               DHT22
+#define DHT_DEF_NUM_SENSORS        1                       // Number of sensors actived by default
+const uint8_t DHT_DEF_SENSORS[] =  {32};                   // Array for default pin for DHT sensors
+#define DHT_DEF_TYPE               DHT22                   // Default DHT sensors type
 #define DHT_MAX_SENSORS            5                       // Maximum number of sensors that will be allowed
 
 
@@ -108,6 +108,23 @@ const uint8_t DHT_DEF_SENSORS[] =  {32};
 #define CURR_SENS_N_SAMPLES        10                      // Number of samples to read to make the average
 #define CURR_SENS_MS_INTERV        100                     // Milliseconds to wait between the read intervals
 #define CURR_SENS_MS_BE            30L * 1000L             // Time in seconds between current ini current end measure
+
+
+//===========================================================
+//======================== pH sensor ========================
+//===========================================================
+#define PH_DEF_NUM_SENSORS         1                       // Number of sensors actived by default
+const uint8_t PH_DEF_PIN_SENSORS[] =  {8};                 // Array for default pins for pH sensors
+#define PH_MAX_NUM_SENSORS         3                       // Maximum number of pH sensors that can be connected
+#define PH_SENS_N_SAMP_READ        10                      // Number of samples read from sensor
+
+//===========================================================
+//======================== CO2 sensor =======================
+//===========================================================
+#define CO2_DEF_NUM_SENSORS        1
+ 
+#define CO2_SENS_N_SAMP_READ       15                      // Number of samples read from sensor
+
 
 
 #endif

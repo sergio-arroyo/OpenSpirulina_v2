@@ -34,16 +34,17 @@
 #include <SD.h>
 #include <DallasTemperature.h>
 #include <TinyGsmClient.h>
-#include "MemoryFree.h"                                    //TODO: Gestió de memòria             
+#include "MemoryFree.h"
 #include <Ethernet2.h>                                     // Shield W5500 with Ethernet2.h will be used in this version of the project
 
 // OpenSpirulina libs
 #include "Load_SD_Config.h"
 #include "DateTime_RTC.h"                                  // Class to control RTC date time
 #include "LCD_Screen.h"                                    // Class for LCD control
-#include "DHT_Sensor.h"                                    // Class for control all DHT sensors
+#include "DHT_Sensors.h"                                   // Class for control all DHT sensors
 #include "DO_Sensor.h"                                     // Class for Optical Density control
 #include "Lux_Sensor.h"                                    // Class for lux sensor control
+#include "PH_Sensors.h"                                    // Class for pH sensors control
 
 
 /*****************
@@ -54,7 +55,7 @@ bool LCD_enabled = LCD_DEF_ENABLED;                        // Indicates whether 
 bool RTC_enabled = RTC_DEF_ENABLED;                        // Indicates whether the RTC is active
 bool SD_save_enabled = SD_SAVE_DEF_ENABLED;                // Indicates whether the save to SD is enabled
 
-DHT_Sensor dht_sensors;                                    // Handle all DHT sensors
+DHT_Sensors dht_sensors;                                   // Handle all DHT sensors
 Lux_Sensor lux_sensor;                                     // Lux sensor with BH1750
 DO_Sensor  do_sensor;                                      // Sensor 1 [DO] ("Optical Density")
 
@@ -66,7 +67,7 @@ DateTime_RTC dateTimeRTC;                                  // RTC class object (
 LCD_Screen lcd(LCD_I2C_ADDR, LCD_COLS, LCD_ROWS,
                 LCD_CONTRAST, LCD_BACKLIGHT_ENABLED);      // LCD screen
 
-
+PH_Sensors* pH_sensors;                                    // pH sensors class
 
 
 
@@ -108,24 +109,24 @@ const uint8_t num_T = 4;                                   // Temperature of the
 
 const uint8_t num_PIR = 0;                                 // PIR movement sensor. MAX 3 --> S'ha de traure i enlloc seu posar Current pin 
 const uint8_t num_DO = 1;                                  // Optical Density Sensor Module made by OpenSpirulina includes a RGB led + BH1750 lux sensor
-const uint8_t num_pH = 1;                                  // pH sensor. MAX 3
+
 const uint8_t num_CO2 = 0;                                 // CO2 sensor MAX ?
 
-enum option_internet_type {                                // Valid internet types
+enum opt_Internet_type {                                   // Valid internet types
 	it_none = 0,
 	it_Ethernet,
 	it_GPRS,
 	it_Wifi
 };
 
-enum option_current_sensor {                               // No sensor | ACS 712:Sensor inside | SCT013: no invasive
+enum opt_current_sensor {                                  // No sensor | ACS 712:Sensor inside | SCT013: no invasive
 	cs_none = 0,
 	cs_ACS712,                                             // Invasive sensor. Source: https://naylampmechatronics.com/blog/48_tutorial-sensor-de-corriente-acs712.html
 	cs_SCT013                                              // Non invasive sensor with internal burden resistence. http://www.gonzalogalvan.es/medidor-de-consumo-lectura-de-la-corriente-con-arduino/ 
 };
 
 const uint8_t num_current_sensor = 1;                      // Current sensor. MAX 3 
-const option_current_sensor current_sensors_type = cs_none;// Define de type of sensors
+const opt_current_sensor current_sensors_type = cs_none;   // Define de type of sensors
 
 //Choose the current sensibility of current sensor:
 //float current_sensibility = 0.185;                       // ACS712 de  5 Amperes
@@ -135,7 +136,7 @@ float current_sensibility = 0.100;                         // ACS712 de 20 Amper
 //const int regulation = 10;                               // SCT013 de 30 Amperes con resistencia interna ATENTION CONFIRM VALUE: 
 
 
-const option_internet_type option_internet = it_none;      // None | Ethernet | GPRS Modem | Wifi <-- Why not? Dream on it
+const opt_Internet_type opt_Internet = it_none;            // None | Ethernet | GPRS Modem | Wifi <-- Why not? Dream on it
 
 
 
@@ -150,8 +151,7 @@ const option_internet_type option_internet = it_none;      // None | Ethernet | 
 */
 
 /*   ANALOG PINS  */
-const uint8_t pins_ph[num_pH] = {8};                       // pH Pins (Analog)
-const uint8_t pins_co2[1] = {11};                          // CO2 pin (Analog)//const int pins_co2[num_CO2] = {11};     // CO2 pin (Analog)
+const uint8_t pins_co2[num_CO2] = {};                      // CO2 pin (Analog)
 
 const uint8_t pins_pir[num_PIR] = {};                      // PIR Pins  //S'ha de traure.
 const uint8_t pins_current[num_current_sensor] = {38};     // Current sensor PINs, next: 39,40
@@ -169,22 +169,11 @@ const uint8_t pins_current[num_current_sensor] = {38};     // Current sensor PIN
 
 
 
-
-
-
-
-
-
-const uint8_t co2_samples_number = 15;
-
 OneWire oneWireObj(ONE_WIRE_PIN);
 DallasTemperature sensorDS18B20(&oneWireObj);
 
 // Array de temperatures amb tamany num_temp sensors assignats
 float array_temps[num_T];
-
-// Array of pH sensors
-float array_ph[num_pH];
 
 // Array of PIR sensors
 int array_pir[num_PIR];
@@ -214,8 +203,10 @@ DeviceAddress* array_tSensor_addrs[num_T];                 //Array of Temperatur
 float lux;
 float pre_lux;
 
+//TODO: Cambiar tipo de dato de last_send de String a char[9]
+//char last_send[9];
 String last_send;                                          //Last time sended data
-uint16_t loop_count = 0;           //TODO: Contador de ciclos de lectura
+uint16_t loop_count = 0;    //TODO: Contador de ciclos de lectura
 
 
 // GPRS Modem
@@ -265,38 +256,6 @@ void capture_temperatures() {
 	}
 }
 
-// Return ph value from SensorPin--> Pregunta, com sap quin és el SensorPin...?
-float capture_pH(uint8_t SensorPin) {
-    unsigned long int avgValue;         // Store the average value of the sensor feedback
-    int buf[10], temp;
-
-    for (int i=0; i<10; i++) {          // Get 10 sample value from the sensor for smooth the value
-		buf[i] = analogRead(SensorPin);
-		delay(10);
-    }
-	
-	// sort the analog from small to large
-    for (int i=0; i<9; i++) {
-		for (int j=i+1; j<10; j++) {
-			if (buf[i] > buf[j]) {
-				temp = buf[i];
-				buf[i] = buf[j];
-				buf[j] = temp;
-			}
-        }
-    }
-
-    avgValue = 0;
-    for (int i=2; i<8; i++)                      //take the average value of 6 center sample
-        avgValue += buf[i];
-	
-    float phValue = (float)avgValue*5.0/1024/6;  //convert the analog into millivolt
-    phValue = 3.5 * phValue;                     //convert the millivolt into pH value
-    
-    // Return phValue for that SensorPin
-    return phValue;
-}
-
 // Deteccio si hi ha moviment via PIR
 bool detect_PIR(int pin) {
     //for(int i=0; i<num_PIR; i++){
@@ -305,12 +264,8 @@ bool detect_PIR(int pin) {
 }
 
 /* Capture light ambient with LDR sensor*/
-float capture_LDR() {
-    if (option_lux == lux_BH1750)              // Return Lux value with BH1750
-        return lux_sensor.readLightLevel();
-    else if (option_lux == lux_LDR)            // Return Lux value with LDR
-        return analogRead(ldr_pin);
-    return 0;
+float capture_LDR(uint8_t s_pin) {
+    return analogRead(s_pin);
 }
 
 void sort_array(float* arr, const uint8_t n_samples) {
@@ -331,39 +286,39 @@ float sort_and_filter_CO2(float* llistat) {
 	// Define array without first and last n elements
 	float llistat_output;
 	// Sort normally
-	sort_array(llistat, co2_samples_number);
+	sort_array(llistat, CO2_SENS_N_SAMP_READ);
 
 	// Descartem els 2 primers i 2 ultims valors
-	for (uint8_t i=2; i<(co2_samples_number-2); i++) {
+	for (uint8_t i=2; i<(CO2_SENS_N_SAMP_READ-2); i++) {
 		llistat_output += llistat[i];
 	}
-	return llistat_output / (co2_samples_number - 4);
+	return llistat_output / (CO2_SENS_N_SAMP_READ - 4);
 }
 
 /* Capture CO2 */
 void capture_CO2() {
-  if (DEBUG) SERIAL_MON.println(F("Capturing CO2"));
+    if (DEBUG) SERIAL_MON.println(F("Capturing CO2"));
 
-  // Take co2_samples_number samples of Every co2 sensor
-  float mostres_co2[co2_samples_number];
-  for (uint8_t j=0; j<co2_samples_number; j++) {
-    // Read voltage
-    // Paso 1, conversión ADC de la lectura del pin analógico
-    float adc = analogRead(pins_co2[0]);  
-    // Paso 2, obtener el voltaje
-    float voltaje = adc * 5.0 / 1023.0;
+    // Take CO2_SENS_N_SAMP_READ samples of Every co2 sensor
+    float mostres_co2[CO2_SENS_N_SAMP_READ];
 
-    float co2conc = voltaje*(-3157.89)+1420.0;
-    SERIAL_MON.print(co2conc);
-    SERIAL_MON.print(F(" ppm CO2 ["));
-    SERIAL_MON.print(j);
-    SERIAL_MON.println(F("]"));
+    for (uint8_t j=0; j<CO2_SENS_N_SAMP_READ; j++) {
+        // Read voltage
+        float adc = analogRead(pins_co2[0]);               // Paso 1, conversión ADC de la lectura del pin analógico
+        float voltaje = adc * 5.0 / 1023.0;                // Paso 2, obtener el voltaje
+        float co2conc = voltaje * (-3157.89) + 1420.0;
 
-    // Save voltatge value
-    mostres_co2[j] = co2conc;
-    delay(100);
+        SERIAL_MON.print(co2conc);
+        SERIAL_MON.print(F(" ppm CO2 ["));
+        SERIAL_MON.print(j);
+        SERIAL_MON.println(F("]"));
+
+        // Save voltatge value
+        mostres_co2[j] = co2conc;
+        delay(100);
     }
-  array_co2[0] = sort_and_filter_CO2(mostres_co2);
+    
+    array_co2[0] = sort_and_filter_CO2(mostres_co2);
 }
 
 /* Show obteined vales from LCD */
@@ -378,46 +333,43 @@ void mostra_LCD() {
     if (num_T > 2)
         lcd.add_value_read("T2:", (array_temps[2] + array_temps[3]) / 2);
     
-    if (num_pH > 0)
-        lcd.add_value_read("pH1:", array_ph[0]);
+    if (pH_sensors && pH_sensors->get_n_sensors() > 0)
+        lcd.add_value_read("pH1:", pH_sensors->get_sensor_value(0));
     
-    if (num_pH > 1)
-        lcd.add_value_read("pH2:", array_ph[1]);
+    if (pH_sensors && pH_sensors->get_n_sensors() > 1)
+        lcd.add_value_read("pH2:", pH_sensors->get_sensor_value(1));
 
     if (num_CO2 > 0)
         lcd.add_value_read("CO2:", array_co2[0]);
 
-    //TODO: Seria recomendable mostrar la fecha de la ultima captura o de la siguiente que se producirá ???
-    /*
-    lcd.setCursor(0, 2);       // go to the 3rd line
-    if (last_send != "") {
-        lcd.print(F("LAST: "));
+    if (last_send != "") {                                 // Show last send time
+        lcd.print_msg(0, 2, "Last: ");
         lcd.print(last_send);
     }
-    */
 }
 
 /* Capture data in calibration mode */
-void do_a_calibration_pH() {
-  if (DEBUG) SERIAL_MON.println(F("Starting calibration mode..."));
-  char buffer_L[6];               // String buffer
-  
-  lcd.clear();                    // Clear screen
-  lcd.home ();                    // Linea 1
-  lcd.print(F("pH Calibration"));
+void pH_calibration() {
+    if (DEBUG) SERIAL_MON.println(F("Starting calibration mode..."));
+    char buffer_L[6];                                      // String buffer
+    
+    lcd.clear();                                           // Clear screen
+    lcd.home ();                                           // Linea 1
+    lcd.print(F("pH Calibration"));
 
-  if (num_pH > 0) {
-    lcd.setCursor ( 0, 1 );       // go to the 2nd line
-    lcd.print(F("pH1:"));
-    dtostrf(capture_pH(pins_ph[0]),4,2,buffer_L);
-    lcd.print(buffer_L);
-  }
-  if (num_pH > 1) {
-    lcd.setCursor ( 0, 2 );       // go to the 3rd line
-    lcd.print(F("pH2:"));
-    dtostrf(capture_pH(pins_ph[1]),4,2,buffer_L);
-    lcd.print(buffer_L);
-  }
+    if (pH_sensors && pH_sensors->get_n_sensors() > 0) {
+        lcd.setCursor(0, 1);                               // go to the 2nd line
+        lcd.print(F("pH1:"));
+        dtostrf(pH_sensors->get_sensor_value(0), 4, 2, buffer_L);
+        lcd.print(buffer_L);
+    }
+    
+    if (pH_sensors && pH_sensors->get_n_sensors() > 1) {
+        lcd.setCursor(0, 2);                               // go to the 3rd line
+        lcd.print(F("pH2:"));
+        dtostrf(pH_sensors->get_sensor_value(1), 4, 2, buffer_L);
+        lcd.print(buffer_L);
+    }
 }
 
 /* Obtain current value on specific Invasive sensor ACS712 */
@@ -503,7 +455,8 @@ void SD_write_header(const char* _fileName) {
     if (lux_sensor.is_init()) myFile.print(F("lux#"));
     
     // pH Sensor
-    for (uint8_t i=0; i<num_pH; i++) {
+    uint8_t num_max = pH_sensors? pH_sensors->get_n_sensors() : 0;
+    for (uint8_t i=0; i<num_max; i++) {
         myFile.print(F("pH_"));
         myFile.print(i);
         myFile.print(F("#"));
@@ -557,17 +510,15 @@ void SD_save_data(const char* _fileName) {
     
     if (!myFile) {
         if (DEBUG) SERIAL_MON.println(F("Error opening SD file!"));
-        return;      //Exit
+        return;    //Exit
     }
 
-    //DateTime if have RTC
-    if (RTC_enabled) {
+    if (RTC_enabled) {                                     //DateTime if have RTC
         tmp_data += dateTimeRTC.getDateTime();
         tmp_data += F("#");
     }
     
-    // Temperatures del cultiu Tn_s, Tn_b, ...
-    for (uint8_t i=0; i<num_T; i++) {
+    for (uint8_t i=0; i<num_T; i++) {                      // Temperatures del cultiu Tn_s, Tn_b, ...
         tmp_data += array_temps[i];
         tmp_data += F("#");
     }
@@ -588,12 +539,15 @@ void SD_save_data(const char* _fileName) {
     }
     
     // pH Sensor
-    for (uint8_t i=0; i<num_pH; i++) {
-        tmp_data += array_ph[i];
+    //TODO: Implementar bulk_results de PH_Sensors
+    uint8_t num_max = pH_sensors? pH_sensors->get_n_sensors() : 0;
+    for (uint8_t i=0; i<num_max; i++) {
+        tmp_data += pH_sensors->get_sensor_value(i);
         tmp_data += F("#");
     }
     
     // DO Sensor
+    //TODO: Implementar bulk_results de DO_Sensor
     if (num_DO > 0) {                                          // If have DO sensor
         tmp_data += pre_lux;
         tmp_data += F("#");
@@ -841,11 +795,12 @@ bool send_data_server() {
 	*/
 
 	// Append pH Sensor
-	for (int i=0; i<num_pH; i++) {
+    uint8_t num_max = pH_sensors? pH_sensors->get_n_sensors() : 0;
+	for (int i=0; i<num_max; i++) {
 		cadena += "&ph";
 		cadena += i+1;
 		cadena += "=";
-		cadena += array_ph[i];
+		cadena += pH_sensors->get_sensor_value(i);
 	}  
 
 	// Append DO Sensor
@@ -902,12 +857,12 @@ bool send_data_server() {
 	}
 
 	// Send data to specific hardware
-	if (option_internet == it_Ethernet) {
+	if (opt_Internet == it_Ethernet) {
 		// Add end of GET petition for Ethernet and send
 		cadena += " HTTP/1.1";
 		return send_data_ethernet(cadena);
 	}
-	else if (option_internet == it_GPRS) {
+	else if (opt_Internet == it_GPRS) {
 		// Send petition to GPRS Modem
 		return send_data_modem(cadena, false);
 	} else {
@@ -915,7 +870,7 @@ bool send_data_server() {
 	}
 }
 
-void load_SD_DHT_sensors(Load_SD_Config* ini) {
+void SD_load_DHT_sensors(Load_SD_Config* ini) {
 	char buffer[INI_FILE_BUFFER_LEN] = "";
 	char tag_sensor[22] = "";
 	bool found;
@@ -943,7 +898,7 @@ void load_SD_DHT_sensors(Load_SD_Config* ini) {
 	}
 }
 
-void load_SD_Lux_sensor(IniFile* ini) {
+void SD_load_Lux_sensor(IniFile* ini) {
 	char buffer[INI_FILE_BUFFER_LEN] = "";
 	bool found;
 	
@@ -975,7 +930,7 @@ void load_SD_Lux_sensor(IniFile* ini) {
 	}
 }
 
-void load_SD_DO_sensor(IniFile* ini) {
+void SD_load_DO_sensor(IniFile* ini) {
    	char buffer[INI_FILE_BUFFER_LEN] = ""; 
 	bool found;
     
@@ -1011,6 +966,36 @@ void load_SD_DO_sensor(IniFile* ini) {
     }
 }
 
+void SD_load_pH_sensors(IniFile* ini) {
+	char buffer[INI_FILE_BUFFER_LEN] = "";
+	char tag_sensor[22] = "";
+	bool found;
+	uint8_t i = 1;
+
+	Serial.println(F("Loading pH sensors config.."));
+	do {
+		sprintf(tag_sensor, "sensor%d.pin", i++);
+		found = ini->getValue("sensors:pH", tag_sensor, buffer, sizeof(buffer));
+		if (found) {
+			uint8_t pin = atoi(buffer);
+			Serial.print(F("  > Found config: ")); Serial.print(tag_sensor);
+			Serial.print(F(". Pin = ")); Serial.println(pin);
+
+            if (!pH_sensors) pH_sensors = new PH_Sensors();     //If the object has not been initialized yet, we do it now
+            pH_sensors->add_sensor(pin);
+		}
+	} while (found);
+
+	// If no configuration found in IniFile..
+	if (!pH_sensors && PH_DEF_NUM_SENSORS > 0) {
+		if (DEBUG) SERIAL_MON.println(F("No pH config. found. Loading default.."));
+		for (i=0; i<PH_DEF_NUM_SENSORS; i++) {
+			Serial.print(F("  > Found config: sensor")); Serial.print(i+1);
+			Serial.print(F(". Pin = ")); Serial.println(PH_DEF_PIN_SENSORS[i]);
+		}
+	}
+}
+
 
 
 /*
@@ -1044,9 +1029,12 @@ void setup() {
             ini.load_bool("RTC", "enabled", RTC_enabled);                 // Load if RTC is enabled
             ini.load_bool("SD_card", "save_on_sd", SD_save_enabled);      // Load if SD save is enabled
 
-			load_SD_DHT_sensors(&ini);                                    // Load DHT sensors configuration
-			load_SD_Lux_sensor(&ini);                                     // Initialize Lux light sensor
-            load_SD_DO_sensor(&ini);                                      // Initialize DO sensor
+			SD_load_DHT_sensors(&ini);                                    // Initialize DHT sensors configuration
+			SD_load_Lux_sensor(&ini);                                     // Initialize Lux light sensor
+            SD_load_DO_sensor(&ini);                                      // Initialize DO sensor
+            SD_load_pH_sensors(&ini);                                     // Initialize pH sensors
+
+            
         }
 	}
 	else {
@@ -1124,7 +1112,7 @@ void setup() {
 	}
 
 	// Initialize Ethernet shield
-	if (option_internet == it_Ethernet) {
+	if (opt_Internet == it_Ethernet) {
 		// give the ethernet module time to boot up:
 		delay(2000);
 		if (DEBUG) SERIAL_MON.println(F("Starting Ethernet Module"));
@@ -1143,7 +1131,7 @@ void setup() {
 		}
 	}
 	// Initialize GPRS Modem
-	else if(option_internet == it_GPRS) {
+	else if(opt_Internet == it_GPRS) {
 		// Not implemented jet
 	}
 }
@@ -1160,13 +1148,13 @@ void loop() {
     // If pin calibration ph switch is HIGH
     while (digitalRead(CALIBRATION_SWITCH_PIN) == HIGH) {
         if (DEBUG) SERIAL_MON.println(F("Calibration switch active!"));
-        do_a_calibration_pH();
+        pH_calibration();
         delay(10000);
     }
 
     if (DEBUG) {
         SERIAL_MON.print(F("\nFreeMem: ")); SERIAL_MON.print(freeMemory());
-        SERIAL_MON.print(F(" - Loop: ")); SERIAL_MON.println(++loop_count);
+        SERIAL_MON.print(F(" - loop: ")); SERIAL_MON.println(++loop_count);
 		SERIAL_MON.println(F("Getting data.."));
     }
 
@@ -1194,14 +1182,12 @@ void loop() {
 	}
     
 	// Capture PH for each pH Sensor
-	for (uint8_t i=0; i<num_pH; i++) {
-		if (DEBUG) {
-			SERIAL_MON.print(F("Capture pH ")); SERIAL_MON.print(i+1);
-			SERIAL_MON.print(F(".."));
-		}
-		array_ph[i] = capture_pH(pins_ph[i]);
-	}
+    if (pH_sensors) {
+        if (DEBUG) SERIAL_MON.println(F("Capture pH sensors.. "));
+        pH_sensors->store_all_results();
+    }
 
+    // Capture PH for each pH Sensor
 	if (dht_sensors.get_num_sensors() > 0) {
 		if (DEBUG) SERIAL_MON.println(F("Capture DHT sensor(s).."));
 		dht_sensors.capture_all_DHT();
@@ -1237,7 +1223,7 @@ void loop() {
     // END of capturing values
     if (LCD_enabled) mostra_LCD();
     
-	if (option_internet != it_none) {
+	if (opt_Internet != it_none) {
 		// Si s'envia correctament actualitzar last_send
 		if  (send_data_server()) {
 			delay(200);

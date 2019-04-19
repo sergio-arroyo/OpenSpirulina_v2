@@ -21,9 +21,9 @@ typedef enum {
     RHT03    // Equivalent to DHT22
   } DHT_Dev_Model_t;
 
-class DHT_Sensor {
+class DHT_Sensors {
 public:
-    DHT_Sensor();
+    DHT_Sensors();
     
     bool add_sensor(uint8_t pin, DHT_Dev_Model_t model=AUTO_DETECT);
     void capture_all_DHT();

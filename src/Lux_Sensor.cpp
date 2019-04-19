@@ -72,8 +72,8 @@ bool Lux_Sensor::is_init() {
 void Lux_Sensor::sort_result(float* arr, const uint8_t n_samples) {
     float tmp_val;
 
-    for (int i=0; i < (n_samples-1); i++) {
-        for (int j=0; j < (n_samples-(i+1)); j++) {
+    for (uint8_t i=0; i < (n_samples-1); i++) {
+        for (uint8_t j=0; j < (n_samples-(i+1)); j++) {
             if (arr[j] > arr[j+1]) {
                 tmp_val = arr[j];
                 arr[j] = arr[j+1];
