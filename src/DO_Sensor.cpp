@@ -14,7 +14,7 @@
 DO_Sensor::DO_Sensor() {
     n_samples    = DO_SENS_N_SAMP_READ;
     ms_reads     = DO_SENS_MS_READS;
-    RGBW_results = {0, 0, 0, 0};
+    lux_results  = {0, 0, 0, 0, 0};
     initialized  = false;
 }
 
@@ -41,16 +41,24 @@ bool DO_Sensor::begin(uint8_t _addr, uint8_t _R_pin, uint8_t _G_pin, uint8_t _B_
 
 /* Capture DO values */
 void DO_Sensor::capture_DO() {
-    RGBW_results.R_value = capture_Red_LED();              // Get the values for each LED color from the DO
-    RGBW_results.G_value = capture_Green_LED();
-    RGBW_results.B_value = capture_Blue_LED();
-    RGBW_results.W_value = capture_White_LED();
+    lux_results.preLux_value = get_preLux_value();        // Get pre Lux value without any actived led
+    lux_results.R_value = capture_Red_LED();              // Get the values for each LED color from the DO
+    lux_results.G_value = capture_Green_LED();
+    lux_results.B_value = capture_Blue_LED();
+    lux_results.W_value = capture_White_LED();
 }
 
-/* Capture light value without any led activated */
-const float DO_Sensor::readLightLevel() {
-    return bh1750_dev->readLightLevel();
+const float DO_Sensor::capture_preLux() {
+    float iir[n_samples];
+
+    for (uint8_t i=0; i<n_samples; i++) {
+        iir[i] = bh1750_dev->readLightLevel();             // Read the BH1750 lux value
+        delay(ms_reads);
+    }
+
+    return filter_result(iir, n_samples);
 }
+
 
 /* Red light values for DO */
 const float DO_Sensor::capture_Red_LED() {
@@ -116,20 +124,29 @@ const float DO_Sensor::capture_White_LED() {
     return filter_result(iir, n_samples);
 }
 
+/* Get instant lux value without any led activated */
+const float DO_Sensor::get_instant_lux() {
+    return bh1750_dev->readLightLevel();
+}
+
+const float DO_Sensor::get_preLux_value() {
+    return lux_results.preLux_value;
+}
+
 const float DO_Sensor::get_Red_value() {
-    return RGBW_results.R_value;
+    return lux_results.R_value;
 }
 
 const float DO_Sensor::get_Green_value() {
-    return RGBW_results.G_value;
+    return lux_results.G_value;
 }
 
 const float DO_Sensor::get_Blue_value() {
-    return RGBW_results.B_value;
+    return lux_results.B_value;
 }
 
 const float DO_Sensor::get_White_value() {
-    return RGBW_results.W_value;
+    return lux_results.W_value;
 }
 
 /* Sort a list of value items and calculate the efective value */

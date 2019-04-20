@@ -32,7 +32,6 @@
 // Third-party libs
 #include <SPI.h>
 #include <SD.h>
-#include <DallasTemperature.h>
 #include <TinyGsmClient.h>
 #include "MemoryFree.h"
 #include <Ethernet2.h>                                     // Shield W5500 with Ethernet2.h will be used in this version of the project
@@ -45,6 +44,7 @@
 #include "DO_Sensor.h"                                     // Class for Optical Density control
 #include "Lux_Sensor.h"                                    // Class for lux sensor control
 #include "PH_Sensors.h"                                    // Class for pH sensors control
+#include "WP_Temp_Sensors.h"                               // Class for DS18 Waterproof Temperature Sensors control
 
 
 /*****************
@@ -68,7 +68,7 @@ LCD_Screen lcd(LCD_I2C_ADDR, LCD_COLS, LCD_ROWS,
                 LCD_CONTRAST, LCD_BACKLIGHT_ENABLED);      // LCD screen
 
 PH_Sensors* pH_sensors;                                    // pH sensors class
-
+WP_Temp_Sensors *wp_t_sensors;                             // DS18B20 Sensors class 
 
 
 
@@ -104,12 +104,7 @@ bool conexio_internet = false;
  | |\  | |__| | |  | | |_) | |____| | \ \   ____) | |____| |\  |____) | |__| | | \ \ ____) |
  |_| \_|\____/|_|  |_|____/|______|_|  \_\ |_____/|______|_| \_|_____/ \____/|_|  \_\_____/
  */
-const uint8_t num_T = 4;                                   // Temperature of the culture. Sensor DS18B20.MAX 6
-                                                           // T1_s T1_b -- T2_s T2_b = 4
-
 const uint8_t num_PIR = 0;                                 // PIR movement sensor. MAX 3 --> S'ha de traure i enlloc seu posar Current pin 
-const uint8_t num_DO = 1;                                  // Optical Density Sensor Module made by OpenSpirulina includes a RGB led + BH1750 lux sensor
-
 const uint8_t num_CO2 = 0;                                 // CO2 sensor MAX ?
 
 enum opt_Internet_type {                                   // Valid internet types
@@ -152,7 +147,6 @@ const opt_Internet_type opt_Internet = it_none;            // None | Ethernet | 
 
 /*   ANALOG PINS  */
 const uint8_t pins_co2[num_CO2] = {};                      // CO2 pin (Analog)
-
 const uint8_t pins_pir[num_PIR] = {};                      // PIR Pins  //S'ha de traure.
 const uint8_t pins_current[num_current_sensor] = {38};     // Current sensor PINs, next: 39,40
 
@@ -167,13 +161,24 @@ const uint8_t pins_current[num_current_sensor] = {38};     // Current sensor PIN
   \_____|______\____/|____/_/    \_\______|     \/_/    \_\_|  \_\_____/
 */
 
-
-
+//TODO: Eliminar cuando se implemente 
+/*
 OneWire oneWireObj(ONE_WIRE_PIN);
 DallasTemperature sensorDS18B20(&oneWireObj);
 
 // Array de temperatures amb tamany num_temp sensors assignats
 float array_temps[num_T];
+
+//Define Temperature sensors adress: 
+//Define pair of Temp1 sensors
+DeviceAddress sensor_t1_b = {0x28, 0xFF, 0x72, 0x88, 0x24, 0x17, 0x03, 0x09};
+DeviceAddress sensor_t1_s = {0x28, 0xFF, 0x1B, 0xD2, 0x24, 0x17, 0x03, 0x28};
+// Define pair of Temp2 sensors
+DeviceAddress sensor_t2_b = {0x28, 0xFF, 0xCA, 0xE5, 0x80, 0x14, 0x02, 0x16};
+DeviceAddress sensor_t2_s = {0x28, 0xFF, 0x89, 0xBB, 0x60, 0x17, 0x05, 0x6D};
+
+DeviceAddress* array_tSensor_addrs[num_T];                 //Array of Temperatures from the culture
+*/
 
 // Array of PIR sensors
 int array_pir[num_PIR];
@@ -188,20 +193,9 @@ const unsigned long time_current = 30L * 1000L; //Time un seconds between curren
 // Array of CO2 sensors
 float array_co2[num_CO2];
 
-
-//Define Temperature sensors adress: 
-//Define pair of Temp1 sensors
-DeviceAddress sensor_t1_b = {0x28, 0xFF, 0x72, 0x88, 0x24, 0x17, 0x03, 0x09};
-DeviceAddress sensor_t1_s = {0x28, 0xFF, 0x1B, 0xD2, 0x24, 0x17, 0x03, 0x28};
-// Define pair of Temp2 sensors
-DeviceAddress sensor_t2_b = {0x28, 0xFF, 0xCA, 0xE5, 0x80, 0x14, 0x02, 0x16};
-DeviceAddress sensor_t2_s = {0x28, 0xFF, 0x89, 0xBB, 0x60, 0x17, 0x05, 0x6D};
-
-DeviceAddress* array_tSensor_addrs[num_T];                 //Array of Temperatures from the culture
-
 // Lux ambient value
 float lux;
-float pre_lux;
+
 
 //TODO: Cambiar tipo de dato de last_send de String a char[9]
 //char last_send[9];
@@ -236,16 +230,20 @@ EthernetClient eth_client;
  |_|     \____/|_| \_|\_____|  |_|  |_____\____/|_| \_|_____/  
  */
 
-
-// Setup DS18B20 array address 
+//TODO: quitar al añadir clase WP_Temp_Sensors
+// Setup DS18B20 array address
+/*
 void setup_DS18B20_addr() {
 	array_tSensor_addrs[0] = &sensor_t1_b;
 	array_tSensor_addrs[1] = &sensor_t1_s;
 	array_tSensor_addrs[2] = &sensor_t2_b;
 	array_tSensor_addrs[3] = &sensor_t2_s;
 }
+*/
 
+//TODO: quitar al añadir clase WP_Temp_Sensors
 /* Captura les temperatures via array de sensors */
+/*
 void capture_temperatures() {
 	sensorDS18B20.requestTemperatures();   // Requests culture temperatures from oneWire bus
 
@@ -255,6 +253,7 @@ void capture_temperatures() {
 		delay(10);
 	}
 }
+*/
 
 // Deteccio si hi ha moviment via PIR
 bool detect_PIR(int pin) {
@@ -326,12 +325,12 @@ void mostra_LCD() {
     lcd.clear();                        // Clear screen
 
     // Shows on LCD the average of the two temperatures of  the first pair
-    if (num_T > 0)
-        lcd.add_value_read("T1:", (array_temps[0] + array_temps[1]) / 2);
+    if (wp_t_sensors && wp_t_sensors->get_n_pairs() > 0)
+        lcd.add_value_read("T1:", wp_t_sensors->get_result_pair_mean(0));
     
     // Shows on LCD the average of the two temperatures of  the first pair
-    if (num_T > 2)
-        lcd.add_value_read("T2:", (array_temps[2] + array_temps[3]) / 2);
+    if (wp_t_sensors && wp_t_sensors->get_n_pairs() > 1)
+        lcd.add_value_read("T2:", wp_t_sensors->get_result_pair_mean(1));
     
     if (pH_sensors && pH_sensors->get_n_sensors() > 0)
         lcd.add_value_read("pH1:", pH_sensors->get_sensor_value(0));
@@ -427,18 +426,15 @@ void SD_write_header(const char* _fileName) {
     if (RTC_enabled) myFile.print(F("DateTime#"));
 
     // T1_s#T1_b#......#Tn_s#Tn_b#
-    for (uint8_t i=0, j=0; i<num_T; i++) {
-        if (i%2 == 0) {
-            myFile.print(F("T"));
-            myFile.print(j);
-            myFile.print(F("_s#"));
-        }
-        else {
-            myFile.print(F("T"));
-            myFile.print(j);
-            myFile.print(F("_b#"));
-            j++;
-        }
+    uint8_t max_val = (wp_t_sensors)?wp_t_sensors->get_n_pairs():0;
+    for (uint8_t i=0; i<max_val; i++) {
+        myFile.print(F("Temp"));
+        myFile.print(i);
+        myFile.print(F("_s#"));
+
+        myFile.print(F("Temp"));
+        myFile.print(i);
+        myFile.print(F("_b#"));
     }
 
     // ambient1_temp#ambient1_humetat#
@@ -463,24 +459,19 @@ void SD_write_header(const char* _fileName) {
     }
 
     // DO Sensor
-    for (uint8_t i=0; i<num_DO; i++) {
-        // pre_lux value
-        myFile.print(F("pre_lux#"));  
-        // R
+    if (do_sensor.is_init()) {
+        myFile.print(F("pre_lux#"));                       // pre_lux value
+        myFile.print(F("DO_"));                            // Red
+        myFile.print("1");
+        myFile.print(F("_R#"));                            // Green
         myFile.print(F("DO_"));
-        myFile.print(i);
-        myFile.print(F("_R#"));
-        // G
-        myFile.print(F("DO_"));
-        myFile.print(i);
+        myFile.print("1");
         myFile.print(F("_G#"));
-        // B
-        myFile.print(F("DO_"));
-        myFile.print(i);
+        myFile.print(F("DO_"));                            // Blue
+        myFile.print("1");
         myFile.print(F("_B#"));
-        // RGB
-        myFile.print(F("DO_"));
-        myFile.print(i);
+        myFile.print(F("DO_"));                            // RGB (white)
+        myFile.print("1");
         myFile.print(F("_RGB#"));                  
     }
 
@@ -491,7 +482,7 @@ void SD_write_header(const char* _fileName) {
         myFile.print(F("#"));
     }
 
-    //TODO: Falta afegit les capçaleras de corrent ini & end
+    //TODO: Añadir cabeceras de corriente Ini & End
 
     myFile.println(F(""));               // End of line
     myFile.close();                      // close the file:
@@ -500,7 +491,7 @@ void SD_write_header(const char* _fileName) {
 /* Writing results to file in SD card */
 void SD_save_data(const char* _fileName) {
     String tmp_data = "";                                  // Temporal string to concatenate the information
-
+    
     if (DEBUG) {
         SERIAL_MON.print("Try to open SD file: ");
         SERIAL_MON.println(_fileName);
@@ -513,13 +504,16 @@ void SD_save_data(const char* _fileName) {
         return;    //Exit
     }
 
-    if (RTC_enabled) {                                     //DateTime if have RTC
+    if (RTC_enabled) {                                       //DateTime if have RTC
         tmp_data += dateTimeRTC.getDateTime();
         tmp_data += F("#");
     }
-    
-    for (uint8_t i=0; i<num_T; i++) {                      // Temperatures del cultiu Tn_s, Tn_b, ...
-        tmp_data += array_temps[i];
+
+    uint8_t max_val = (wp_t_sensors)?wp_t_sensors->get_n_pairs():0;
+    for (uint8_t i=0; i<max_val; i++) {                      // Temperatures del cultiu Tn_s, Tn_b, ...
+        tmp_data += wp_t_sensors->get_result_pair(i, 1);
+        tmp_data += F("#");
+        tmp_data += wp_t_sensors->get_result_pair(i, 2);
         tmp_data += F("#");
     }
     
@@ -548,10 +542,9 @@ void SD_save_data(const char* _fileName) {
     
     // DO Sensor
     //TODO: Implementar bulk_results de DO_Sensor
-    if (num_DO > 0) {                                          // If have DO sensor
-        tmp_data += pre_lux;
-        tmp_data += F("#");
-                             
+    if (do_sensor.is_init()) {                                 // If have DO sensor
+        tmp_data += do_sensor.get_preLux_value();
+        tmp_data += F("#");               
         tmp_data += do_sensor.get_Red_value();                 // R-G-B-RGB (white)
         tmp_data += F("#");
         tmp_data += do_sensor.get_Green_value();
@@ -580,7 +573,7 @@ void SD_save_data(const char* _fileName) {
     }
 
     if (DEBUG) {
-        SERIAL_MON.print(F("Data to write:"));
+        SERIAL_MON.print(F("Data to write: "));
         SERIAL_MON.println(tmp_data);
     }
 
@@ -757,11 +750,17 @@ bool send_data_server() {
 	cadena += pin_arduino;
 
 	// Append temperatures
-	for (int i=0; i<num_T; i++){
-		cadena += "&temp";
+    uint8_t max_val = (wp_t_sensors)?wp_t_sensors->get_n_pairs():0;
+	for (int i=0; i<max_val; i++) {
+		cadena += F("&temp");
 		cadena += i+1;
-		cadena += "=";
-		cadena += array_temps[i];
+		cadena += F("_s=");
+		cadena += wp_t_sensors->get_result_pair(i, 1);
+
+		cadena += F("&temp");
+		cadena += i+1;
+		cadena += F("_b=");
+		cadena += wp_t_sensors->get_result_pair(i, 2);
 	}
 
 	// Append Ambient temperatures and Humidity
@@ -804,9 +803,9 @@ bool send_data_server() {
 	}  
 
 	// Append DO Sensor
-	if (num_DO > 0) {                                      // If have DO sensor
+	if (do_sensor.is_init()) {                             // If have DO sensor
 		cadena += "&pre_L=";                               // Previous lux
-		cadena += pre_lux;                                 // Pre Lux value
+		cadena += do_sensor.get_preLux_value();            // Pre Lux value
 		cadena += "&do1_R=";
 		cadena += do_sensor.get_Red_value();               // Red value
 		cadena += "&do1_G=";
@@ -876,14 +875,16 @@ void SD_load_DHT_sensors(Load_SD_Config* ini) {
 	bool found;
 	uint8_t i = 1;
 
-	Serial.println(F("Loading DHT sensors config.."));
+	if (DEBUG) SERIAL_MON.println(F("Loading DHT sensors config.."));
 	do {
 		sprintf(tag_sensor, "sensor%d.pin", i++);
 		found = ini->getValue("sensors:DHT", tag_sensor, buffer, sizeof(buffer));
 		if (found) {
 			uint8_t pin = atoi(buffer);
-			Serial.print(F("  > Found config: ")); Serial.print(tag_sensor);
-			Serial.print(F(". Pin = ")); Serial.println(pin);
+			if (DEBUG) {
+                SERIAL_MON.print(F("  > Found config: ")); SERIAL_MON.print(tag_sensor);
+			    SERIAL_MON.print(F(". Pin = ")); SERIAL_MON.println(pin);
+            }
 			dht_sensors.add_sensor(pin);
 		}
 	} while (found);
@@ -892,8 +893,11 @@ void SD_load_DHT_sensors(Load_SD_Config* ini) {
 	if (dht_sensors.get_num_sensors() == 0) {
 		if (DEBUG) SERIAL_MON.println(F("No DHT config. found. Loading default.."));
 		for (i=0; i<DHT_DEF_NUM_SENSORS; i++) {
-			Serial.print(F("  > Found config: sensor")); Serial.print(i+1);
-			Serial.print(F(". Pin = ")); Serial.println(DHT_DEF_SENSORS[i]);
+			if (DEBUG)  {
+                SERIAL_MON.print(F("  > Found config: sensor")); Serial.print(i+1);
+			    SERIAL_MON.print(F(". Pin = ")); Serial.println(DHT_DEF_SENSORS[i]);
+            }
+            dht_sensors.add_sensor(DHT_DEF_SENSORS[i]);
 		}
 	}
 }
@@ -909,7 +913,7 @@ void SD_load_Lux_sensor(IniFile* ini) {
 	if (found) {
 		// Convert char[] address to byte value
         uint8_t address = (uint8_t)strtol(buffer, NULL, 16);
-		Serial.print(F("  > Found config address: 0x")); Serial.println(address, HEX);
+		if (DEBUG) { SERIAL_MON.print(F("  > Found config address: 0x")); SERIAL_MON.println(address, HEX); }
 		
 		// Read Lux Addr pin
 		ini->getValue("sensor:lux", "addr_pin", buffer, sizeof(buffer));
@@ -925,7 +929,7 @@ void SD_load_Lux_sensor(IniFile* ini) {
 	}
     else {
 		// Configure lux sensor with default configuration
-        Serial.print(F("No config found. Loading default.."));
+        if (DEBUG) SERIAL_MON.print(F("No config found. Loading default.."));
 		if (LUX_SENS_ACTIVE) lux_sensor.begin(LUX_SENS_ADDR, LUX_SENS_ADDR_PIN);
 	}
 }
@@ -939,27 +943,28 @@ void SD_load_DO_sensor(IniFile* ini) {
     // Read DO sensor address (hexadecimal format)
 	found = ini->getValue("sensor:DO", "address", buffer, sizeof(buffer));
     if (found) {
-        uint8_t address, led_R_pin, led_G_pin, led_B_pin;
+        uint8_t address;
+        uint16_t led_R_pin, led_G_pin, led_B_pin;
 
         address = (uint8_t)strtol(buffer, NULL, 16);    // Convert hex char[] to byte value
 		Serial.print(F("  > Found config address: 0x")); Serial.println(address, HEX);
 
         // Read red LED pin
-        if (!ini->getValue("sensor:DO", "led_R_pin", buffer, sizeof(buffer)), (uint8_t)led_R_pin)
+        if (!ini->getValue("sensor:DO", "led_R_pin", buffer, sizeof(buffer), led_R_pin))
             led_R_pin = DO_SENS_R_LED_PIN;
 
         // Read green LED pin
-        if (!ini->getValue("sensor:DO", "led_G_pin", buffer, sizeof(buffer)), (uint8_t)led_G_pin)
+        if (!ini->getValue("sensor:DO", "led_G_pin", buffer, sizeof(buffer), led_G_pin))
             led_G_pin = DO_SENS_G_LED_PIN;
         
         // Read blue LED pin
-        if (!ini->getValue("sensor:DO", "led_B_pin", buffer, sizeof(buffer)), (uint8_t)led_B_pin)
+        if (!ini->getValue("sensor:DO", "led_B_pin", buffer, sizeof(buffer), led_B_pin))
             led_B_pin = DO_SENS_B_LED_PIN;
 
         // Configure DO sensor with load parametern from IniFile
         do_sensor.begin(address, led_R_pin, led_G_pin, led_B_pin);
     }
-    else {
+    else if (DO_SENS_ACTIVE) {
         // Configure DO sensor with default configuration
         Serial.print(F("No config found. Loading default.."));
         do_sensor.begin(DO_SENS_ADDR, DO_SENS_R_LED_PIN, DO_SENS_G_LED_PIN, DO_SENS_B_LED_PIN);
@@ -992,10 +997,75 @@ void SD_load_pH_sensors(IniFile* ini) {
 		for (i=0; i<PH_DEF_NUM_SENSORS; i++) {
 			Serial.print(F("  > Found config: sensor")); Serial.print(i+1);
 			Serial.print(F(". Pin = ")); Serial.println(PH_DEF_PIN_SENSORS[i]);
+
+            pH_sensors->add_sensor(PH_DEF_PIN_SENSORS[i]);
 		}
 	}
 }
 
+/* Converts a string to bytes array like a device address */
+bool convert_str_to_addr(char* str, uint8_t* addr, uint8_t max_len) {
+    char *pch;
+    uint8_t len = 0;
+    
+    pch = strtok(str, ",");
+    while (pch != NULL && len < max_len) {
+        addr[len] = (uint8_t)strtol(pch, NULL, 16);
+
+        len++;
+        pch = strtok(NULL, ",");
+    }
+
+    return (len <= max_len);
+}
+
+void SD_load_WP_Temp_sensors(IniFile* ini) {
+	char buffer[INI_FILE_BUFFER_LEN] = "";
+	char tag_sensor[20] = "";
+    uint8_t i=1, addr_s[8], addr_b[8];
+	uint16_t one_wire_pin;
+
+    if (DEBUG) SERIAL_MON.println(F("Loading WP temperature sensors config.."));
+    
+    bool found = ini->getValue("sensors:wp_temp", "one_wire_pin", buffer, sizeof(buffer),
+                               one_wire_pin);                         // Load One Wire config
+
+	while (found) {
+        // Load surface sensor address
+		sprintf(tag_sensor, "addr_t%d_s", i);
+		found = ini->getValue("sensors:wp_temp", tag_sensor, buffer, sizeof(buffer));
+        if (!found || !convert_str_to_addr(buffer, addr_s, 8)) break; // If can't find the sensor or the address is not correct, exit
+
+        // Load background sensor address
+        sprintf(tag_sensor, "addr_t%d_b", i);
+        found = ini->getValue("sensors:wp_temp", tag_sensor, buffer, sizeof(buffer));
+        if (!found || !convert_str_to_addr(buffer, addr_b, 8)) break; // If can't find the sensor or the address is not correct, exit
+
+        if (DEBUG) {
+            SERIAL_MON.print(F("  > Found config: sensor")); SERIAL_MON.print(i);
+            SERIAL_MON.println(F(" pair"));
+        }
+        
+        if (!wp_t_sensors) wp_t_sensors = new WP_Temp_Sensors(one_wire_pin);  //If the obj has not been initialized yet, we do it now
+        wp_t_sensors->add_sensors_pair(addr_s, addr_b);
+
+        i++;
+	}
+
+    // Load default configuration
+    if (!wp_t_sensors && WP_T_DEF_NUM_PAIRS > 0) {
+        if (DEBUG) SERIAL_MON.println(F("No pH config. found. Loading default.."));
+        
+        wp_t_sensors = new WP_Temp_Sensors(WP_T_ONE_WIRE_PIN);
+        for (i=0; i<WP_T_DEF_NUM_PAIRS; i++) {
+            if (DEBUG) {
+                SERIAL_MON.print(F("  > Found config: sensor")); SERIAL_MON.print(i);
+                SERIAL_MON.println(F(" pair"));
+            }
+            wp_t_sensors->add_sensors_pair(WP_T_DEF_SENST_PAIRS[i][0], WP_T_DEF_SENST_PAIRS[i][0]);   
+        }
+    }
+}
 
 
 /*
@@ -1033,8 +1103,11 @@ void setup() {
 			SD_load_Lux_sensor(&ini);                                     // Initialize Lux light sensor
             SD_load_DO_sensor(&ini);                                      // Initialize DO sensor
             SD_load_pH_sensors(&ini);                                     // Initialize pH sensors
-
             
+            //TODO: implantar clase WP_Temp_Sensors.h
+            SD_load_WP_Temp_sensors(&ini);                                // Initialize DS18B20 waterproof temperature sensors
+            
+
         }
 	}
 	else {
@@ -1058,34 +1131,6 @@ void setup() {
 
 
 
-
-
-
-
-
-
-
-	// Verification that the number of temperature sensors is even
-    if ((num_T % 2) != 0 && DEBUG) SERIAL_MON.println(F("[ERROR] On number of temperature sensors."));
-	
-    // If have DS18B20 Sensors, init them
-    if (num_T > 0) {
-		if (DEBUG) SERIAL_MON.print(F("Initializing DS18B20 BUS.. "));
-		
-		sensorDS18B20.begin();
-
-		// Verify number of detected devices
-		if (sensorDS18B20.getDeviceCount() != num_T) {
-			if (DEBUG) {
-				SERIAL_MON.print(F("[Error] Incorrect number DS18B20 devices detected! ["));
-				SERIAL_MON.print(sensorDS18B20.getDeviceCount()); SERIAL_MON.print(F("] of: "));
-				SERIAL_MON.println(num_T);
-			}
-		} else {
-			if (DEBUG) SERIAL_MON.println(F(" Initialized OK"));
-		}
-		setup_DS18B20_addr();
-	}
 
 
 
@@ -1176,9 +1221,9 @@ void loop() {
     }
 
     // Si tenim sondes de temperatura
-    if (num_T > 0) {
-		if (DEBUG) SERIAL_MON.println(F("Capture temperatures DS18B20.."));
-		capture_temperatures();
+    if (wp_t_sensors) {
+		if (DEBUG) SERIAL_MON.println(F("Capture WP temperatures.."));
+		wp_t_sensors->store_all_results();
 	}
     
 	// Capture PH for each pH Sensor
@@ -1207,9 +1252,8 @@ void loop() {
     }
 
     //Capture DO values (Red, Green, Blue, and White)
-    if (num_DO > 0) {
+    if (do_sensor.is_init()) {
 		if (DEBUG) SERIAL_MON.println(F("Capture DO sensor.."));
-        pre_lux = do_sensor.readLightLevel();
         do_sensor.capture_DO(); 
         delay(500);
     }
@@ -1219,7 +1263,7 @@ void loop() {
 		if (DEBUG) SERIAL_MON.println(F("Capture CO2 sensor.."));
 		capture_CO2();
 	}
-
+    
     // END of capturing values
     if (LCD_enabled) mostra_LCD();
     

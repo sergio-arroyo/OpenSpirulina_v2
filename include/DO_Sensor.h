@@ -25,12 +25,13 @@ private:
     uint8_t B_pin;                                         //
     uint8_t n_samples;                                     // Number of samples to obtain for each reading process
     uint16_t ms_reads;                                     // Milliseconds to wait in each reading cycle
-    struct buff_RGB_t {                                    // Results of DO sensors [Red, Green, Blue, White]
+    struct buff_lux_t {                                    // Results of DO sensors [Red, Green, Blue, White]
+        float preLux_value;
 		float R_value;
 		float G_value;
 		float B_value;
 		float W_value;
-    } RGBW_results;                        
+    } lux_results;                        
 
     float filter_result(float* list, uint8_t n_samples);   // Calculate the efective value
     void  sort_result(float* arr, const uint8_t size);     // Sort the list of values obtained from lux sensor
@@ -40,12 +41,14 @@ public:
 
     bool  begin(uint8_t _addr, uint8_t _R_pin, uint8_t _G_pin, uint8_t _B_pin);
     void  capture_DO();
+    const float capture_preLux();
     const float capture_Red_LED();
     const float capture_Green_LED();
     const float capture_Blue_LED();
     const float capture_White_LED();
 
-    const float readLightLevel();                          // Capture light value without any led activated
+    const float get_instant_lux();                         // Capture instant lux value without any led activated
+    const float get_preLux_value();
     const float get_Red_value();                           // Return the readed values from sensor for R, G, B & W leds
     const float get_Green_value();                         //
     const float get_Blue_value();                          //

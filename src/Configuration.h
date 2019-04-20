@@ -15,8 +15,6 @@
 //======================= Digital pins ======================
 //===========================================================
 #define CALIBRATION_SWITCH_PIN     43                      // Pin for pH calibration switch
-#define ONE_WIRE_PIN               OPENSPIR_VGA_PIN14      // Where 1-Wire is connected
-#define SD_CARD_SS_PIN             PIN_SPI_SS              // Slave Select/Pin lector SD (PIN_SPI_SS = 53)
 
 
 //===========================================================
@@ -60,6 +58,7 @@
 //===========================================================
 //=========================== SD ============================
 //===========================================================
+#define SD_CARD_SS_PIN             PIN_SPI_SS              // Slave Select/Pin lector SD (PIN_SPI_SS = 53)
 #define SD_SAVE_DEF_ENABLED        1                       // Indicates whether save data sensors on SD is enabled or not by default
 #define SD_MAX_FILENAME_SIZE       14                      // Defines de max size of filename
 #define INI_FILE_NAME              "/config.ini"           // Filename of config ini file
@@ -94,12 +93,42 @@ const uint8_t DHT_DEF_SENSORS[] =  {32};                   // Array for default 
 //===========================================================
 //======================== DO sensor ========================
 //===========================================================
+#define DO_SENS_ACTIVE             1                       // Indicates whether DO sensor is enabled or not by default
 #define DO_SENS_ADDR               0x23                    // I2C address for module communication
 #define DO_SENS_R_LED_PIN          OPENSPIR_VGA_PIN1       // Pin for DO Red LED
 #define DO_SENS_G_LED_PIN          OPENSPIR_VGA_PIN6       // Pin for DO Green LED
 #define DO_SENS_B_LED_PIN          OPENSPIR_VGA_PIN2       // Pin for DO Blue LED
 #define DO_SENS_N_SAMP_READ        10                      // Number of samples read from sensor
 #define DO_SENS_MS_READS           500                     // Time (in ms) between each reading
+
+
+//===========================================================
+//======================== pH sensor ========================
+//===========================================================
+#define PH_DEF_NUM_SENSORS         1                       // Number of sensors actived by default
+const uint8_t PH_DEF_PIN_SENSORS[] =  {8};                 // Array for default pins for pH sensors
+#define PH_MAX_NUM_SENSORS         3                       // Maximum number of pH sensors that can be connected
+#define PH_SENS_N_SAMP_READ        10                      // Number of samples read from sensor
+
+
+//===========================================================
+//================== WP temperature sensor ==================
+//===========================================================
+#define WP_T_ONE_WIRE_PIN          OPENSPIR_VGA_PIN14      // Where 1-Wire is connected
+#define WP_T_DEF_NUM_PAIRS         2
+
+const uint8_t WP_T_DEF_SENST_PAIRS[][2][8] = {
+    {   // Define pair of Temp1 sensors:
+        {0x28, 0xFF, 0x1B, 0xD2, 0x24, 0x17, 0x03, 0x28},
+        {0x28, 0xFF, 0x72, 0x88, 0x24, 0x17, 0x03, 0x09}
+    },
+    {   // Define pair of Temp2 sensors:
+        {0x28, 0xFF, 0x89, 0xBB, 0x60, 0x17, 0x05, 0x6D},
+        {0x28, 0xFF, 0xCA, 0xE5, 0x80, 0x14, 0x02, 0x16}
+    }
+};
+
+#define WP_T_MAX_PAIRS_SENS        4
 
 
 //===========================================================
@@ -111,18 +140,9 @@ const uint8_t DHT_DEF_SENSORS[] =  {32};                   // Array for default 
 
 
 //===========================================================
-//======================== pH sensor ========================
-//===========================================================
-#define PH_DEF_NUM_SENSORS         1                       // Number of sensors actived by default
-const uint8_t PH_DEF_PIN_SENSORS[] =  {8};                 // Array for default pins for pH sensors
-#define PH_MAX_NUM_SENSORS         3                       // Maximum number of pH sensors that can be connected
-#define PH_SENS_N_SAMP_READ        10                      // Number of samples read from sensor
-
-//===========================================================
 //======================== CO2 sensor =======================
 //===========================================================
 #define CO2_DEF_NUM_SENSORS        1
- 
 #define CO2_SENS_N_SAMP_READ       15                      // Number of samples read from sensor
 
 
