@@ -34,27 +34,8 @@ uint8_t WP_Temp_Sensors::add_sensors_pair(const uint8_t* s_sensor, const uint8_t
         sensors_pairs[n_pairs].s_sensor[i] = s_sensor[i];
         sensors_pairs[n_pairs].b_sensor[i] = b_sensor[i];
     }
-
-    //TODO: [DEBUG]
-    Serial.println(F("[DEBUG] Added sensors pair:"));
-    Serial.print(F("  --> Pair[")); Serial.print(n_pairs); Serial.println(F("]:"));
-
-    Serial.print(F("     --> s_sensor: "));
-    for (uint8_t i=0; i<8; i++) {
-        Serial.print(F("0x")); if (sensors_pairs[n_pairs].s_sensor[i] < 16) Serial.print(F("0"));
-        Serial.print(sensors_pairs[n_pairs].s_sensor[i], HEX);
-        if (i < 7) Serial.print(F(", ")); else Serial.println("");
-    }
-    Serial.print(F("     --> b_sensor: "));
-    for (uint8_t i=0; i<8; i++) {
-        Serial.print(F("0x")); if (sensors_pairs[n_pairs].b_sensor[i] < 16) Serial.print(F("0"));
-        Serial.print(sensors_pairs[n_pairs].b_sensor[i], HEX);
-        if (i < 7) Serial.print(F(", ")); else Serial.println("");
-    }
-    //TODO: [DEBUG]
-    
     n_pairs++;
-
+    
     return 0;
 }
 

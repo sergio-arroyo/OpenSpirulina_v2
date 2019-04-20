@@ -862,7 +862,7 @@ void SD_load_Lux_sensor(IniFile* ini) {
 	char buffer[INI_FILE_BUFFER_LEN] = "";
 	bool found;
 	
-	Serial.println(F("Loading Lux sensor config.."));
+	if (DEBUG) SERIAL_MON.println(F("Loading Lux sensor config.."));
 	
 	// Read Lux sensor address
 	found = ini->getValue("sensor:lux", "address", buffer, sizeof(buffer));
@@ -874,7 +874,7 @@ void SD_load_Lux_sensor(IniFile* ini) {
 		// Read Lux Addr pin
 		ini->getValue("sensor:lux", "addr_pin", buffer, sizeof(buffer));
 		uint8_t addr_pin = atoi(buffer);                   // If addr_pin not found, the value is 0
-		Serial.print(F("  > Addr pin: ")); Serial.println(addr_pin);
+		if (DEBUG) { SERIAL_MON.print(F("  > Addr pin: ")); SERIAL_MON.println(addr_pin); }
 
 		lux_sensor.begin(address, addr_pin);               // Configure lux sensor with Ini loaded config.
 
@@ -886,7 +886,9 @@ void SD_load_Lux_sensor(IniFile* ini) {
     else {
 		// Configure lux sensor with default configuration
         if (DEBUG) SERIAL_MON.print(F("No config found. Loading default.."));
-		if (LUX_SENS_ACTIVE) lux_sensor.begin(LUX_SENS_ADDR, LUX_SENS_ADDR_PIN);
+
+		if (LUX_SENS_ACTIVE)
+            lux_sensor.begin(LUX_SENS_ADDR, LUX_SENS_ADDR_PIN);
 	}
 }
 
@@ -894,35 +896,35 @@ void SD_load_DO_sensor(IniFile* ini) {
    	char buffer[INI_FILE_BUFFER_LEN] = ""; 
 	bool found;
     
-    Serial.println(F("Loading DO sensor config.."));
+    if (DEBUG) SERIAL_MON.println(F("Loading DO sensor config.."));
 
     // Read DO sensor address (hexadecimal format)
 	found = ini->getValue("sensor:DO", "address", buffer, sizeof(buffer));
     if (found) {
-        uint8_t address;
-        uint16_t led_R_pin, led_G_pin, led_B_pin;
+        uint8_t address, led_R_pin, led_G_pin, led_B_pin;
+        uint16_t tmp_val;
 
         address = (uint8_t)strtol(buffer, NULL, 16);    // Convert hex char[] to byte value
-		Serial.print(F("  > Found config address: 0x")); Serial.println(address, HEX);
+		if (DEBUG) { SERIAL_MON.print(F("  > Found config address: 0x")); SERIAL_MON.println(address, HEX); }
 
         // Read red LED pin
-        if (!ini->getValue("sensor:DO", "led_R_pin", buffer, sizeof(buffer), led_R_pin))
-            led_R_pin = DO_SENS_R_LED_PIN;
+        if (ini->getValue("sensor:DO", "led_R_pin", buffer, sizeof(buffer), tmp_val))
+            led_R_pin = tmp_val; else led_R_pin = DO_SENS_R_LED_PIN;
 
         // Read green LED pin
-        if (!ini->getValue("sensor:DO", "led_G_pin", buffer, sizeof(buffer), led_G_pin))
-            led_G_pin = DO_SENS_G_LED_PIN;
+        if (ini->getValue("sensor:DO", "led_G_pin", buffer, sizeof(buffer), tmp_val))
+            led_G_pin = tmp_val; else led_G_pin = DO_SENS_G_LED_PIN;
         
         // Read blue LED pin
-        if (!ini->getValue("sensor:DO", "led_B_pin", buffer, sizeof(buffer), led_B_pin))
-            led_B_pin = DO_SENS_B_LED_PIN;
+        if (ini->getValue("sensor:DO", "led_B_pin", buffer, sizeof(buffer), tmp_val))
+            led_B_pin = tmp_val; else led_B_pin = DO_SENS_B_LED_PIN;
 
         // Configure DO sensor with load parametern from IniFile
         do_sensor.begin(address, led_R_pin, led_G_pin, led_B_pin);
     }
     else if (DO_SENS_ACTIVE) {
         // Configure DO sensor with default configuration
-        Serial.print(F("No config found. Loading default.."));
+        if (DEBUG) SERIAL_MON.print(F("No config found. Loading default.."));
         do_sensor.begin(DO_SENS_ADDR, DO_SENS_R_LED_PIN, DO_SENS_G_LED_PIN, DO_SENS_B_LED_PIN);
     }
 }
@@ -933,7 +935,7 @@ void SD_load_pH_sensors(IniFile* ini) {
 	bool found;
 	uint8_t i = 1;
 
-	Serial.println(F("Loading pH sensors config.."));
+	if (DEBUG) SERIAL_MON.println(F("Loading pH sensors config.."));
 	do {
 		sprintf(tag_sensor, "sensor%d.pin", i++);
 		found = ini->getValue("sensors:pH", tag_sensor, buffer, sizeof(buffer));
@@ -951,9 +953,10 @@ void SD_load_pH_sensors(IniFile* ini) {
 	if (!pH_sensors && PH_DEF_NUM_SENSORS > 0) {
 		if (DEBUG) SERIAL_MON.println(F("No pH config. found. Loading default.."));
 		for (i=0; i<PH_DEF_NUM_SENSORS; i++) {
-			Serial.print(F("  > Found config: sensor")); Serial.print(i+1);
-			Serial.print(F(". Pin = ")); Serial.println(PH_DEF_PIN_SENSORS[i]);
-
+            if (DEBUG) {
+                SERIAL_MON.print(F("  > Found config: sensor")); SERIAL_MON.print(i+1);
+			    SERIAL_MON.print(F(". Pin = ")); SERIAL_MON.println(PH_DEF_PIN_SENSORS[i]);
+            }
             pH_sensors->add_sensor(PH_DEF_PIN_SENSORS[i]);
 		}
 	}
@@ -967,7 +970,6 @@ bool convert_str_to_addr(char* str, uint8_t* addr, uint8_t max_len) {
     pch = strtok(str, ",");
     while (pch != NULL && len < max_len) {
         addr[len] = (uint8_t)strtol(pch, NULL, 16);
-
         len++;
         pch = strtok(NULL, ",");
     }
@@ -982,7 +984,7 @@ void SD_load_WP_Temp_sensors(IniFile* ini) {
 	uint16_t one_wire_pin;
 
     if (DEBUG) SERIAL_MON.println(F("Loading WP temperature sensors config.."));
-    //TODO: Pruebas de carga de parametros en Configuration.h (cambiar "one_wire_pin-temp" por "one_wire_pin")
+    
     bool found = ini->getValue("sensors:wp_temp", "one_wire_pin", buffer, sizeof(buffer),
                                one_wire_pin);                         // Load One Wire config
 
@@ -1077,17 +1079,7 @@ void setup() {
 		SD_get_next_FileName(fileName);                                   // Obtain the next file name to write
 		SD_write_header(fileName);                                        // Write File headers
 	}
-
-	//xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx continue xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-	
-
-
-
-
-
-
-
-
+    
     // Inicialitza LCD en cas que n'hi haigui
 	if (LCD_enabled) {
 		if (DEBUG) SERIAL_MON.println(F("Initialization LCD.."));
