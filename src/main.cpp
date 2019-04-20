@@ -161,25 +161,6 @@ const uint8_t pins_current[num_current_sensor] = {38};     // Current sensor PIN
   \_____|______\____/|____/_/    \_\______|     \/_/    \_\_|  \_\_____/
 */
 
-//TODO: Eliminar cuando se implemente 
-/*
-OneWire oneWireObj(ONE_WIRE_PIN);
-DallasTemperature sensorDS18B20(&oneWireObj);
-
-// Array de temperatures amb tamany num_temp sensors assignats
-float array_temps[num_T];
-
-//Define Temperature sensors adress: 
-//Define pair of Temp1 sensors
-DeviceAddress sensor_t1_b = {0x28, 0xFF, 0x72, 0x88, 0x24, 0x17, 0x03, 0x09};
-DeviceAddress sensor_t1_s = {0x28, 0xFF, 0x1B, 0xD2, 0x24, 0x17, 0x03, 0x28};
-// Define pair of Temp2 sensors
-DeviceAddress sensor_t2_b = {0x28, 0xFF, 0xCA, 0xE5, 0x80, 0x14, 0x02, 0x16};
-DeviceAddress sensor_t2_s = {0x28, 0xFF, 0x89, 0xBB, 0x60, 0x17, 0x05, 0x6D};
-
-DeviceAddress* array_tSensor_addrs[num_T];                 //Array of Temperatures from the culture
-*/
-
 // Array of PIR sensors
 int array_pir[num_PIR];
 
@@ -200,7 +181,7 @@ float lux;
 //TODO: Cambiar tipo de dato de last_send de String a char[9]
 //char last_send[9];
 String last_send;                                          //Last time sended data
-uint16_t loop_count = 0;    //TODO: Contador de ciclos de lectura
+uint16_t loop_count = 0;
 
 
 // GPRS Modem
@@ -229,31 +210,6 @@ EthernetClient eth_client;
  | |    | |__| | |\  | |____   | |   _| || |__| | |\  |____) | 
  |_|     \____/|_| \_|\_____|  |_|  |_____\____/|_| \_|_____/  
  */
-
-//TODO: quitar al añadir clase WP_Temp_Sensors
-// Setup DS18B20 array address
-/*
-void setup_DS18B20_addr() {
-	array_tSensor_addrs[0] = &sensor_t1_b;
-	array_tSensor_addrs[1] = &sensor_t1_s;
-	array_tSensor_addrs[2] = &sensor_t2_b;
-	array_tSensor_addrs[3] = &sensor_t2_s;
-}
-*/
-
-//TODO: quitar al añadir clase WP_Temp_Sensors
-/* Captura les temperatures via array de sensors */
-/*
-void capture_temperatures() {
-	sensorDS18B20.requestTemperatures();   // Requests culture temperatures from oneWire bus
-
-	// Read temperatures array
-	for (uint8_t i = 0; i < num_T; i++) {
-		array_temps[i] = sensorDS18B20.getTempC(*array_tSensor_addrs[i]);
-		delay(10);
-	}
-}
-*/
 
 // Deteccio si hi ha moviment via PIR
 bool detect_PIR(int pin) {
@@ -491,7 +447,7 @@ void SD_write_header(const char* _fileName) {
 /* Writing results to file in SD card */
 void SD_save_data(const char* _fileName) {
     String tmp_data = "";                                  // Temporal string to concatenate the information
-    
+
     if (DEBUG) {
         SERIAL_MON.print("Try to open SD file: ");
         SERIAL_MON.println(_fileName);
@@ -1026,7 +982,7 @@ void SD_load_WP_Temp_sensors(IniFile* ini) {
 	uint16_t one_wire_pin;
 
     if (DEBUG) SERIAL_MON.println(F("Loading WP temperature sensors config.."));
-    
+    //TODO: Pruebas de carga de parametros en Configuration.h (cambiar "one_wire_pin-temp" por "one_wire_pin")
     bool found = ini->getValue("sensors:wp_temp", "one_wire_pin", buffer, sizeof(buffer),
                                one_wire_pin);                         // Load One Wire config
 
@@ -1062,7 +1018,7 @@ void SD_load_WP_Temp_sensors(IniFile* ini) {
                 SERIAL_MON.print(F("  > Found config: sensor")); SERIAL_MON.print(i);
                 SERIAL_MON.println(F(" pair"));
             }
-            wp_t_sensors->add_sensors_pair(WP_T_DEF_SENST_PAIRS[i][0], WP_T_DEF_SENST_PAIRS[i][0]);   
+            wp_t_sensors->add_sensors_pair(WP_T_DEF_SENST_PAIRS[i][0], WP_T_DEF_SENST_PAIRS[i][1]);   
         }
     }
 }
@@ -1077,7 +1033,7 @@ void SD_load_WP_Temp_sensors(IniFile* ini) {
  |_____/|______|  |_|   \____/|_|
 */
 void setup() {
-    pinMode(CALIBRATION_SWITCH_PIN, INPUT);                               //Configure the input pin for the calibration switch
+    pinMode(PH_CALIBRATION_SWITCH_PIN, INPUT);                            //Configure the input pin for the calibration switch
 
     Wire.begin();                                                         //Initialize the I2C bus (BH1750 library doesn't do this automatically)
 
@@ -1103,8 +1059,6 @@ void setup() {
 			SD_load_Lux_sensor(&ini);                                     // Initialize Lux light sensor
             SD_load_DO_sensor(&ini);                                      // Initialize DO sensor
             SD_load_pH_sensors(&ini);                                     // Initialize pH sensors
-            
-            //TODO: implantar clase WP_Temp_Sensors.h
             SD_load_WP_Temp_sensors(&ini);                                // Initialize DS18B20 waterproof temperature sensors
             
 
@@ -1191,7 +1145,7 @@ void setup() {
 */
 void loop() {
     // If pin calibration ph switch is HIGH
-    while (digitalRead(CALIBRATION_SWITCH_PIN) == HIGH) {
+    while (digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH) {
         if (DEBUG) SERIAL_MON.println(F("Calibration switch active!"));
         pH_calibration();
         delay(10000);
@@ -1310,7 +1264,7 @@ void loop() {
 
             if (LCD_enabled) lcd.print_msg_val(0, 3, "Next read.: %ds ", time_remain);
             if (DEBUG) SERIAL_MON.print(F("."));
-            if (digitalRead(CALIBRATION_SWITCH_PIN) == HIGH) {
+            if (digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH) {
                 if (DEBUG) SERIAL_MON.println(F("Calibration switch activated!"));
                 break;
             }
@@ -1323,7 +1277,7 @@ void loop() {
   else {
     // Waiting for 10 minutes
     for (uint16_t j=0; j<DELAY_SECS_NEXT_READ; j++) {
-      if (digitalRead(CALIBRATION_SWITCH_PIN) == HIGH) {
+      if (digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH) {
         if (DEBUG) SERIAL_MON.println(F("Calibration switch activated!"));
         break;
       }

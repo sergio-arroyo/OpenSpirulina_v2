@@ -12,12 +12,6 @@
 #include "OpenSpir_Shield_conn.h"
 
 //===========================================================
-//======================= Digital pins ======================
-//===========================================================
-#define CALIBRATION_SWITCH_PIN     43                      // Pin for pH calibration switch
-
-
-//===========================================================
 //======================= Serial debug ======================
 //===========================================================
 #define DEBUG_DEF_ENABLED          1                       // Indicates whether serial debugging is enabled or not by default
@@ -105,6 +99,7 @@ const uint8_t DHT_DEF_SENSORS[] =  {32};                   // Array for default 
 //===========================================================
 //======================== pH sensor ========================
 //===========================================================
+#define PH_CALIBRATION_SWITCH_PIN  43                      // Pin for pH calibration switch
 #define PH_DEF_NUM_SENSORS         1                       // Number of sensors actived by default
 const uint8_t PH_DEF_PIN_SENSORS[] =  {8};                 // Array for default pins for pH sensors
 #define PH_MAX_NUM_SENSORS         3                       // Maximum number of pH sensors that can be connected
