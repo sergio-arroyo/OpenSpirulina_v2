@@ -15,8 +15,8 @@
 #define OPENSPIR_SHIELD_J1         PIN_A10                 // Analog 10
 #define OPENSPIR_SHIELD_J2         PIN_A11                 // Analog 11
 #define OPENSPIR_SHIELD_J3         PIN_A12                 // Analog 12
-#define OPENSPIR_SHIELD_J4         PIN_A13                 // Analog 13
-#define OPENSPIR_SHIELD_J5         PIN_A14                 // Analog 14
+#define OPENSPIR_SHIELD_J4         PIN_A13                 // Analog 13 - Current sensor 1
+#define OPENSPIR_SHIELD_J5         PIN_A14                 // Analog 14 - Current sensor 2
 #define OPENSPIR_SHIELD_J6         PIN_A15                 // Analog 15
 
 #define OPENSPIR_SHIELD_SW1        43                      // Switch 1 calibration

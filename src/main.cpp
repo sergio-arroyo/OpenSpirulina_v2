@@ -27,14 +27,14 @@
  * 
  */
 #include <Arduino.h>
-#include "Configuration.h"
+#include "Configuration.h"                                 // General configuration file
 
 // Third-party libs
 #include <SPI.h>
 #include <SD.h>
 #include <TinyGsmClient.h>
-#include "MemoryFree.h"
 #include <Ethernet2.h>                                     // Shield W5500 with Ethernet2.h will be used in this version of the project
+#include "MemoryFree.h"
 
 // OpenSpirulina libs
 #include "Load_SD_Config.h"
@@ -45,6 +45,7 @@
 #include "Lux_Sensor.h"                                    // Class for lux sensor control
 #include "PH_Sensors.h"                                    // Class for pH sensors control
 #include "WP_Temp_Sensors.h"                               // Class for DS18 Waterproof Temperature Sensors control
+#include "Current_Sensors.h"                               // Class for current sensors control
 
 
 /*****************
@@ -55,42 +56,42 @@ bool LCD_enabled = LCD_DEF_ENABLED;                        // Indicates whether 
 bool RTC_enabled = RTC_DEF_ENABLED;                        // Indicates whether the RTC is active
 bool SD_save_enabled = SD_SAVE_DEF_ENABLED;                // Indicates whether the save to SD is enabled
 
-DHT_Sensors dht_sensors;                                   // Handle all DHT sensors
-Lux_Sensor lux_sensor;                                     // Lux sensor with BH1750
-DO_Sensor  do_sensor;                                      // Sensor 1 [DO] ("Optical Density")
-
-File myFile;
-char fileName[SD_MAX_FILENAME_SIZE] = "";                  // Name of file to save data readed from sensors
-
 DateTime_RTC dateTimeRTC;                                  // RTC class object (DS3231 clock sensor)
 
 LCD_Screen lcd(LCD_I2C_ADDR, LCD_COLS, LCD_ROWS,
                 LCD_CONTRAST, LCD_BACKLIGHT_ENABLED);      // LCD screen
 
-PH_Sensors* pH_sensors;                                    // pH sensors class
-WP_Temp_Sensors *wp_t_sensors;                             // DS18B20 Sensors class 
+DHT_Sensors dht_sensors;                                   // Handle all DHT sensors
+Lux_Sensor lux_sensor;                                     // Lux sensor with BH1750
+DO_Sensor  do_sensor;                                      // Sensor 1 [DO] ("Optical Density")
+
+PH_Sensors *pH_sensors;                                    // pH sensors class
+WP_Temp_Sensors *wp_t_sensors;                             // DS18B20 Sensors class
+Current_Sensors *curr_sensors;                             // Current sensors
+
+
+File myFile;
+char fileName[SD_MAX_FILENAME_SIZE] = "";                  // Name of file to save data readed from sensors
 
 
 
 /*****
 AUTHENTICATION ARDUINO
 *****/
-//Define de identity of Arduino
-const uint16_t id_arduino  = 21;
+const uint16_t id_arduino  = 21;                           // Define de identity of Arduino
 const uint16_t pin_arduino = 12345;
 
 /****
 NETWORK SETTINGS 
 ****/
-// Server connect for sending data
-const char  server[] = "sensors.openspirulina.com";
+const char  server[] = "sensors.openspirulina.com";        // Server connect for sending data
 const uint16_t  port = 80;
-// assign a MAC address for the ethernet controller:
-byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};         // assign a MAC address for the ethernet controller:
 
-// Your GPRS credentials
-// Leave empty, if missing user or pass
-const char apn[]  = "internet";
+/*****
+GPRS credentials
+*****/
+const char apn[]  = "internet";                            // Leave empty, if missing user or pass
 const char user[] = "";
 const char pass[] = "";
 
@@ -114,26 +115,7 @@ enum opt_Internet_type {                                   // Valid internet typ
 	it_Wifi
 };
 
-enum opt_current_sensor {                                  // No sensor | ACS 712:Sensor inside | SCT013: no invasive
-	cs_none = 0,
-	cs_ACS712,                                             // Invasive sensor. Source: https://naylampmechatronics.com/blog/48_tutorial-sensor-de-corriente-acs712.html
-	cs_SCT013                                              // Non invasive sensor with internal burden resistence. http://www.gonzalogalvan.es/medidor-de-consumo-lectura-de-la-corriente-con-arduino/ 
-};
-
-const uint8_t num_current_sensor = 1;                      // Current sensor. MAX 3 
-const opt_current_sensor current_sensors_type = cs_none;   // Define de type of sensors
-
-//Choose the current sensibility of current sensor:
-//float current_sensibility = 0.185;                       // ACS712 de  5 Amperes
-float current_sensibility = 0.100;                         // ACS712 de 20 Amperes
-//float current_sensibility = 0.066;                       // ACS712 de 30 Amperes
-//const int regulation = 29;                               // SCT013 de 15 Amperes con resistencia interna.
-//const int regulation = 10;                               // SCT013 de 30 Amperes con resistencia interna ATENTION CONFIRM VALUE: 
-
-
 const opt_Internet_type opt_Internet = it_none;            // None | Ethernet | GPRS Modem | Wifi <-- Why not? Dream on it
-
-
 
 
 /*
@@ -148,8 +130,6 @@ const opt_Internet_type opt_Internet = it_none;            // None | Ethernet | 
 /*   ANALOG PINS  */
 const uint8_t pins_co2[num_CO2] = {};                      // CO2 pin (Analog)
 const uint8_t pins_pir[num_PIR] = {};                      // PIR Pins  //S'ha de traure.
-const uint8_t pins_current[num_current_sensor] = {38};     // Current sensor PINs, next: 39,40
-
 
 
 /*
@@ -163,10 +143,6 @@ const uint8_t pins_current[num_current_sensor] = {38};     // Current sensor PIN
 
 // Array of PIR sensors
 int array_pir[num_PIR];
-
-// Array of Current sensors
-float array_current_ini[num_current_sensor];
-float array_current_end[num_current_sensor];
 
 //Time waiting for correct agitation of culture for correct mesuring DO
 const unsigned long time_current = 30L * 1000L; //Time un seconds between current ini current end measure.
@@ -327,42 +303,6 @@ void pH_calibration() {
     }
 }
 
-/* Obtain current value on specific Invasive sensor ACS712 */
-const float get_current_ACS712(const uint8_t s_pin, const uint8_t n_samples, const float sensibility) {
-    float voltage;
-    float currentSum = 0.0;
-
-    for (uint8_t i=0; i<n_samples; i++) {
-        voltage = analogRead(s_pin) * 5.0 / 1023.0;
-        currentSum += (voltage - 2.5) / sensibility;
-        delay(CURR_SENS_MS_INTERV);
-    }
-    return (currentSum / n_samples);
-}
-
-/* Capture current values for all ACS712 configurated current sensors */
-void capture_current_ACS712(const uint8_t n_samples, const float sensibility) {
-    float consumption = 0;
-
-    for (uint8_t i=0; i<num_current_sensor; i++) {
-        array_current_ini[i] = get_current_ACS712(pins_current[i], n_samples, sensibility);
-        consumption += array_current_ini[i];
-    }
-
-    if (consumption > 0) {
-        if (DEBUG) { SERIAL_MON.print(F("Intensity: ")); SERIAL_MON.println(consumption); }
-        delay(CURR_SENS_MS_BE);
-    }
-
-    for (uint8_t i=0; i<num_current_sensor; i++) {
-        array_current_end[i] = get_current_ACS712(pins_current[i], n_samples, sensibility);
-    }
-}
-
-void capture_current_SCT013() {
-    // Not implemented jet
-}
-
 /* Obtain the name of first free file for writting to SD */
 void SD_get_next_FileName(char* _fileName) {
     static int fileCount = 0;
@@ -518,13 +458,10 @@ void SD_save_data(const char* _fileName) {
     }
     
     // Current sensor init & end
-    for (uint8_t i=0; i<num_current_sensor; i++) {
-        tmp_data += array_current_ini[i];
-        tmp_data += F("#");
-    }
-
-    for (uint8_t i=0; i<num_current_sensor; i++) {
-        tmp_data += array_current_end[i];
+    //TODO: Implementar bulk data de Current_sensors
+    num_max = curr_sensors? curr_sensors->get_n_sensors() : 0;
+    for (uint8_t i=0; i<num_max; i++) {
+        tmp_data += curr_sensors->get_current_value(i);
         tmp_data += F("#");
     }
 
@@ -792,19 +729,13 @@ bool send_data_server() {
 	}
 
 	// Append Current initial & end
-	for (uint8_t i=0; i<num_current_sensor; i++) {
-		cadena += "&I_ini";
+    num_max = curr_sensors? curr_sensors->get_n_sensors() : 0;
+	for (uint8_t i=0; i<num_max; i++) {
+		cadena += "&curr";
 		cadena += i+1;
 		cadena += "=";
-		cadena += array_current_ini[i];
+		cadena += curr_sensors->get_current_value(i);
 	}
-
-	for (uint8_t i=0; i<num_current_sensor; i++) {
-		cadena += "&I_end";
-		cadena += i+1;
-		cadena += "=";
-		cadena += array_current_end[i];
-	}  
 
 	if (DEBUG) {
 		SERIAL_MON.print("Server petition: ");
@@ -902,22 +833,21 @@ void SD_load_DO_sensor(IniFile* ini) {
 	found = ini->getValue("sensor:DO", "address", buffer, sizeof(buffer));
     if (found) {
         uint8_t address, led_R_pin, led_G_pin, led_B_pin;
-        uint16_t tmp_val;
 
         address = (uint8_t)strtol(buffer, NULL, 16);    // Convert hex char[] to byte value
 		if (DEBUG) { SERIAL_MON.print(F("  > Found config address: 0x")); SERIAL_MON.println(address, HEX); }
 
         // Read red LED pin
-        if (ini->getValue("sensor:DO", "led_R_pin", buffer, sizeof(buffer), tmp_val))
-            led_R_pin = tmp_val; else led_R_pin = DO_SENS_R_LED_PIN;
+        if (!ini->getValue("sensor:DO", "led_R_pin", buffer, sizeof(buffer), led_R_pin))
+            led_R_pin = DO_SENS_R_LED_PIN;
 
         // Read green LED pin
-        if (ini->getValue("sensor:DO", "led_G_pin", buffer, sizeof(buffer), tmp_val))
-            led_G_pin = tmp_val; else led_G_pin = DO_SENS_G_LED_PIN;
+        if (!ini->getValue("sensor:DO", "led_G_pin", buffer, sizeof(buffer), led_G_pin))
+            led_G_pin = DO_SENS_G_LED_PIN;
         
         // Read blue LED pin
-        if (ini->getValue("sensor:DO", "led_B_pin", buffer, sizeof(buffer), tmp_val))
-            led_B_pin = tmp_val; else led_B_pin = DO_SENS_B_LED_PIN;
+        if (!ini->getValue("sensor:DO", "led_B_pin", buffer, sizeof(buffer), led_B_pin))
+            led_B_pin = DO_SENS_B_LED_PIN;
 
         // Configure DO sensor with load parametern from IniFile
         do_sensor.begin(address, led_R_pin, led_G_pin, led_B_pin);
@@ -1012,7 +942,7 @@ void SD_load_WP_Temp_sensors(IniFile* ini) {
 
     // Load default configuration
     if (!wp_t_sensors && WP_T_DEF_NUM_PAIRS > 0) {
-        if (DEBUG) SERIAL_MON.println(F("No pH config. found. Loading default.."));
+        if (DEBUG) SERIAL_MON.println(F("No pH config found. Loading default.."));
         
         wp_t_sensors = new WP_Temp_Sensors(WP_T_ONE_WIRE_PIN);
         for (i=0; i<WP_T_DEF_NUM_PAIRS; i++) {
@@ -1021,6 +951,78 @@ void SD_load_WP_Temp_sensors(IniFile* ini) {
                 SERIAL_MON.println(F(" pair"));
             }
             wp_t_sensors->add_sensors_pair(WP_T_DEF_SENST_PAIRS[i][0], WP_T_DEF_SENST_PAIRS[i][1]);   
+        }
+    }
+}
+
+bool extract_str_params_Current_sensor(char *str, uint8_t &pin, Current_Sensors::Current_Model_t &model, uint16_t &var) {
+    char *pch;
+
+    pch = strtok(str, ",");                                // Get the first piace
+    if (pch == NULL) return false;                         // Check piece, if it's not correct, exit
+    pin = (uint8_t)strtol(pch, NULL, 10);                  // Obtain the pin value
+    
+    pch = strtok(NULL, ",");                               // Get the second piace
+
+    while (isspace(*pch)) ++pch;                           // Skip possible white spaces
+    char *tmp = pch;                                       // Remove trailing white space
+    while (*tmp != ',' && *tmp != '\0')
+        if (*tmp == ' '|| *tmp == '\t') *tmp++ = '\0'; else tmp++;
+
+    if (strcmp(pch, "acs712") == 0)                        // Select sensor model
+        model = Current_Sensors::Current_Model_t::ACS712;
+    else if (strcmp(pch, "sct013") == 0)
+        model = Current_Sensors::Current_Model_t::SCT013;
+    else
+        return false;
+    
+    pch = strtok(NULL, ",");                               // Get the third piace
+    if (pch == NULL) return false;
+    var = (uint16_t)strtol(pch, NULL, 10);                 // Obtain the pin value
+
+    return true;
+}
+
+//TODO: Validar nuevo metodo de carga de sensores de corriente
+void SD_load_Current_sensors(IniFile* ini) {
+	char buffer[INI_FILE_BUFFER_LEN] = "";
+	char tag_sensor[16] = "";
+    bool sens_cfg;
+    uint8_t i = 1;
+    uint8_t pin;
+    Current_Sensors::Current_Model_t s_model;
+    uint16_t var;
+
+    if (DEBUG) SERIAL_MON.println(F("Loading Current sensors config.."));
+    do {
+        // Try to read pin
+		sprintf(tag_sensor, "sensor%d", i++);
+		sens_cfg = ini->getValue("sensors:current", tag_sensor, buffer, sizeof(buffer), pin);
+
+		if (sens_cfg && extract_str_params_Current_sensor(buffer, pin, s_model, var)) {
+			if (DEBUG) {
+                SERIAL_MON.print(F("  > Found config: ")); Serial.print(tag_sensor);
+			    SERIAL_MON.print(F(". Pin = ")); Serial.println(pin);
+            }
+
+            if (!curr_sensors) curr_sensors = new Current_Sensors();      //If the object has not been initialized yet, we do it now
+            curr_sensors->add_sensor(pin, s_model, var);
+        }
+    } while (sens_cfg);
+
+    // Load default configuration
+    if (!curr_sensors && CURR_SENS_DEF_NUM > 0) {
+        if (DEBUG) SERIAL_MON.println(F("No current config found. Loading default.."));
+        curr_sensors = new Current_Sensors();
+
+        for (uint8_t i=0; i<CURR_SENS_DEF_NUM; i++) {
+            curr_sensors->add_sensor(CURR_SENS_DEF_PINS[i],
+                                    (Current_Sensors::Current_Model_t) CURR_SENS_DEF_MODELS[i],
+                                    CURR_SENS_DEF_VAR[i]);
+            if (DEBUG) {
+                SERIAL_MON.print(F("  > Found config: "));
+			    SERIAL_MON.print(F(". Pin = ")); Serial.println(CURR_SENS_DEF_PINS[i]);
+            }
         }
     }
 }
@@ -1062,8 +1064,7 @@ void setup() {
             SD_load_DO_sensor(&ini);                                      // Initialize DO sensor
             SD_load_pH_sensors(&ini);                                     // Initialize pH sensors
             SD_load_WP_Temp_sensors(&ini);                                // Initialize DS18B20 waterproof temperature sensors
-            
-
+            SD_load_Current_sensors(&ini);                                // Initialize current sensors
         }
 	}
 	else {
@@ -1152,18 +1153,9 @@ void loop() {
 	if (LCD_enabled)
 		lcd.print_msg_val(0, 3, "Getting data.. %d", (int32_t)loop_count);
 
-    /* Capture current depending on the sensor type */
-    switch (current_sensors_type) {
-        case cs_ACS712:
-            if (DEBUG) SERIAL_MON.println(F("Capture current ACS712.."));
-            capture_current_ACS712(CURR_SENS_N_SAMPLES, current_sensibility);
-            break;
-        case cs_SCT013:
-            if (DEBUG) SERIAL_MON.println(F("Capture current SCT013.."));
-            capture_current_SCT013();
-            break;
-		default:
-			break;
+    if (curr_sensors) {
+       if (DEBUG) SERIAL_MON.println(F("Capture current.."));
+       curr_sensors->capture_all_currents();
     }
 
     // Si tenim sondes de temperatura

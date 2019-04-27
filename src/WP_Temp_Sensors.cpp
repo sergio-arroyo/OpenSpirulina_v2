@@ -29,8 +29,9 @@ void WP_Temp_Sensors::begin() {
 uint8_t WP_Temp_Sensors::add_sensors_pair(const uint8_t* s_sensor, const uint8_t* b_sensor) {
     if (!sensors_ds18->isConnected(s_sensor)) return 1;        // If surface sensor not connected, return error
     if (!sensors_ds18->isConnected(b_sensor)) return 2;        // If background sensor not connected, return error
+    if (n_pairs >= WP_T_MAX_PAIRS_SENS) return 3;              // Controls that no more pairs of the allowed ones are inserted
 
-    for (uint8_t i=0; i<8; i++) {                              //Copy incomming data
+    for (uint8_t i=0; i<8; i++) {                              // Copy incomming data
         sensors_pairs[n_pairs].s_sensor[i] = s_sensor[i];
         sensors_pairs[n_pairs].b_sensor[i] = b_sensor[i];
     }

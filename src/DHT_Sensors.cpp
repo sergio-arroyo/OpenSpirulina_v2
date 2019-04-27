@@ -20,13 +20,13 @@ DHT_Sensors::DHT_Sensors() {
 };
 
 bool DHT_Sensors::add_sensor(uint8_t pin, DHT_Dev_Model_t model) {
-    if (n_sensors < DHT_MAX_SENSORS) {
-        arr_sensors[n_sensors] = new DHT();
-        arr_sensors[n_sensors]->setup(pin);
-        n_sensors++;
-        return true;
-    } else
-        return false;
+    if (n_sensors >= DHT_MAX_SENSORS) return false;
+    
+    arr_sensors[n_sensors] = new DHT();
+    arr_sensors[n_sensors]->setup(pin);
+    n_sensors++;
+    
+    return true;
 }
 
 /* Capture temperatures & humidities from all DHT sensors */

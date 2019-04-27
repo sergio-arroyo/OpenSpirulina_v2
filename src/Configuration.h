@@ -110,9 +110,10 @@ const uint8_t PH_DEF_PIN_SENSORS[] =  {8};                 // Array for default 
 //================== WP temperature sensor ==================
 //===========================================================
 #define WP_T_ONE_WIRE_PIN          OPENSPIR_VGA_PIN14      // Where 1-Wire is connected
-#define WP_T_DEF_NUM_PAIRS         2
+#define WP_T_MAX_PAIRS_SENS        4
 
-const uint8_t WP_T_DEF_SENST_PAIRS[][2][8] = {
+#define WP_T_DEF_NUM_PAIRS         2                       // Define the number of sensor pairs by default
+const uint8_t WP_T_DEF_SENST_PAIRS[][2][8] = {             // Define the pairs
     {   // Define pair of Temp1 sensors:
         {0x28, 0xFF, 0x1B, 0xD2, 0x24, 0x17, 0x03, 0x28},
         {0x28, 0xFF, 0x72, 0x88, 0x24, 0x17, 0x03, 0x09}
@@ -123,15 +124,19 @@ const uint8_t WP_T_DEF_SENST_PAIRS[][2][8] = {
     }
 };
 
-#define WP_T_MAX_PAIRS_SENS        4
-
 
 //===========================================================
 //====================== Current sensor =====================
 //===========================================================
-#define CURR_SENS_N_SAMPLES        10                      // Number of samples to read to make the average
-#define CURR_SENS_MS_INTERV        100                     // Milliseconds to wait between the read intervals
+#define CURR_MAX_NUM_SENSORS       6                       // Maximum number of current sensors that can be connected
+#define CURR_SENS_N_SAMPLES        100                     // Number of samples to read to make the average (value between 1-255)
+#define CURR_SENS_MS_INTERV        1                       // Milliseconds to wait between the read intervals
 #define CURR_SENS_MS_BE            30L * 1000L             // Time in seconds between current ini current end measure
+
+#define CURR_SENS_DEF_NUM          2                       // Number of current sensors by default
+const uint8_t CURR_SENS_DEF_PINS[] = {11, 22};
+const uint8_t CURR_SENS_DEF_MODELS[] = {0, 1};
+const uint16_t CURR_SENS_DEF_VAR[] = {20, 30};
 
 
 //===========================================================
