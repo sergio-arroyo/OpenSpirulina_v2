@@ -105,7 +105,6 @@ bool conexio_internet = false;
  | |\  | |__| | |  | | |_) | |____| | \ \   ____) | |____| |\  |____) | |__| | | \ \ ____) |
  |_| \_|\____/|_|  |_|____/|______|_|  \_\ |_____/|______|_| \_|_____/ \____/|_|  \_\_____/
  */
-const uint8_t num_PIR = 0;                                 // PIR movement sensor. MAX 3 --> S'ha de traure i enlloc seu posar Current pin 
 const uint8_t num_CO2 = 0;                                 // CO2 sensor MAX ?
 
 enum opt_Internet_type {                                   // Valid internet types
@@ -118,18 +117,8 @@ enum opt_Internet_type {                                   // Valid internet typ
 const opt_Internet_type opt_Internet = it_none;            // None | Ethernet | GPRS Modem | Wifi <-- Why not? Dream on it
 
 
-/*
-  _____ _____ _   _  _____
- |  __ \_   _| \ | |/ ____|
- | |__) || | |  \| | (___
- |  ___/ | | | . ` |\___ \
- | |    _| |_| |\  |____) |
- |_|   |_____|_| \_|_____/
-*/
-
 /*   ANALOG PINS  */
 const uint8_t pins_co2[num_CO2] = {};                      // CO2 pin (Analog)
-const uint8_t pins_pir[num_PIR] = {};                      // PIR Pins  //S'ha de traure.
 
 
 /*
@@ -140,9 +129,6 @@ const uint8_t pins_pir[num_PIR] = {};                      // PIR Pins  //S'ha d
  | |__| | |___| |__| | |_) / ____ \| |____     \  / ____ \| | \ \ ____) |
   \_____|______\____/|____/_/    \_\______|     \/_/    \_\_|  \_\_____/
 */
-
-// Array of PIR sensors
-int array_pir[num_PIR];
 
 //Time waiting for correct agitation of culture for correct mesuring DO
 const unsigned long time_current = 30L * 1000L; //Time un seconds between current ini current end measure.
@@ -709,17 +695,6 @@ bool send_data_server() {
 		cadena += do_sensor.get_White_value();             // RGB (white) value
 	}
 
-	// Append PIR Sensor
-	for (uint8_t i=0; i<num_PIR; i++) {
-		cadena += "&pir";
-		cadena += i+1;
-		cadena += "=";
-		if(array_pir[i] == 0)
-		cadena += "0";
-		else if(array_pir[i] == 1)
-		cadena += "1";
-  	}  
-	
 	// Append CO2 Sensors
 	for (uint8_t i=0; i<num_CO2; i++) {
 		cadena += "&co2";
@@ -983,7 +958,6 @@ bool extract_str_params_Current_sensor(char *str, uint8_t &pin, Current_Sensors:
     return true;
 }
 
-//TODO: Validar nuevo metodo de carga de sensores de corriente
 void SD_load_Current_sensors(IniFile* ini) {
 	char buffer[INI_FILE_BUFFER_LEN] = "";
 	char tag_sensor[16] = "";
@@ -1180,14 +1154,6 @@ void loop() {
 		if (DEBUG) SERIAL_MON.println(F("Capture lux sensor.."));
 		lux = lux_sensor.capture_lux();
 	}
-
-    // Capture status of PIR Sensors
-    for (uint8_t i=0; i<num_PIR; i++) {
-        if (detect_PIR(pins_pir[i]) == true)
-            array_pir[i] = 1;
-        else
-            array_pir[i] = 0;
-    }
 
     //Capture DO values (Red, Green, Blue, and White)
     if (do_sensor.is_init()) {

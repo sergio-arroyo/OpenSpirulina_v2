@@ -75,8 +75,7 @@ bool WP_Temp_Sensors::is_init() {
 }
 
 void WP_Temp_Sensors::bulk_results(String* str, bool print_tag, char delim, bool reset) {
-    //TODO: Arreglar el reseteo de la informacion previa
-    //if (reset) str = "";                                   // Indicates whether the string should be deleted before entering the new values
+    if (reset) str->remove(0);                             // Indicates whether the string should be deleted before entering the new values
     
     for (uint8_t i=0; i<n_pairs; i++) {
         if (delim != '\0') str->concat(delim);

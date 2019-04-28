@@ -29,8 +29,8 @@ public:
     void capture_all_DHT();
     const float get_Temperature(uint8_t n_sensor);
     const float get_Humidity(uint8_t n_sensor);
-    void bulk_Temperatures(String* str, char delim=',', bool reset=false);
-    void bulk_Humidities(String* str, char delim=',', bool reset=false);
+    void bulk_Temperatures(String *str, char delim=',', bool reset=false);
+    void bulk_Humidities(String *str, char delim=',', bool reset=false);
     const uint8_t get_num_sensors();
     
 private:

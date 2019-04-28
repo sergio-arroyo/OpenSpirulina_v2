@@ -51,9 +51,8 @@ const float DHT_Sensors::get_Humidity(uint8_t n_sensor) {
     return 0;
 }
 
-void DHT_Sensors::bulk_Temperatures(String* str, char delim, bool reset) {
-    //TODO: Arreglar el reseteo de la informacion previa
-    //if (reset) ((String*)str) = "";                        // Indicates whether the string should be deleted before entering the new values
+void DHT_Sensors::bulk_Temperatures(String *str, char delim, bool reset) {
+    if (reset) str->remove(0);                             // Indicates whether the string should be deleted before entering the new values
     
     for (uint8_t i=0; i<n_sensors; i++) {
         if (delim != '\0') str->concat(delim);
@@ -64,9 +63,8 @@ void DHT_Sensors::bulk_Temperatures(String* str, char delim, bool reset) {
     }
 }
 
-void DHT_Sensors::bulk_Humidities(String* str, char delim, bool reset) {
-    //TODO: Arreglar el reseteo de la informacion previa
-    //if (reset) str = "";                                   // Indicates whether the string should be deleted before entering the new values
+void DHT_Sensors::bulk_Humidities(String *str, char delim, bool reset) {
+    if (reset) str->remove(0);                             // Indicates whether the string should be deleted before entering the new values
     
     for (uint8_t i=0; i<n_sensors; i++) {
         if (delim != '\0') str->concat(delim);
