@@ -75,7 +75,7 @@ void DHT_Sensors::bulk_Humidities(String *str, char delim, bool reset) {
     }
 }
 
-const uint8_t DHT_Sensors::get_num_sensors() {
+const uint8_t DHT_Sensors::get_n_sensors() {
     return n_sensors;
 }
 

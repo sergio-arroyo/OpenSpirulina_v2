@@ -46,7 +46,7 @@ const float Current_Sensors::get_current_value(uint8_t n_sensor) {
     return -127;
 }
 
-void Current_Sensors::capture_all_currents() {
+void Current_Sensors::capture_all_sensors() {
     for (uint8_t i=0; i<n_sensors; i++) {
         arr_current[i] = get_current_value(i);
     }

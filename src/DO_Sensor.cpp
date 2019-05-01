@@ -21,11 +21,10 @@ DO_Sensor::DO_Sensor() {
 bool DO_Sensor::begin(uint8_t _addr, uint8_t _R_pin, uint8_t _G_pin, uint8_t _B_pin) {
     if (initialized) return true;                          // If the sensor already started, return true and not tray more
 
-    // LEDs pins assign
-    R_pin = _R_pin;
+    R_pin = _R_pin;                                        // LEDs pin assign
     G_pin = _G_pin;
     B_pin = _B_pin;
-    pinMode(R_pin, OUTPUT);
+    pinMode(R_pin, OUTPUT);                                // pin mode to output
     pinMode(G_pin, OUTPUT);
     pinMode(B_pin, OUTPUT);
 
@@ -39,92 +38,62 @@ bool DO_Sensor::begin(uint8_t _addr, uint8_t _R_pin, uint8_t _G_pin, uint8_t _B_
     return true;
 }
 
-/* Capture DO values */
 void DO_Sensor::capture_DO() {
-    lux_results.preLux_value = get_preLux_value();        // Get pre Lux value without any actived led
-    lux_results.R_value = capture_Red_LED();              // Get the values for each LED color from the DO
+    lux_results.preLux_value = get_preLux_value();         // Get pre Lux value without any actived led
+    lux_results.R_value = capture_Red_LED();               // Get the values for each LED color from the DO
     lux_results.G_value = capture_Green_LED();
     lux_results.B_value = capture_Blue_LED();
     lux_results.W_value = capture_White_LED();
 }
 
 const float DO_Sensor::capture_preLux() {
-    float iir[n_samples];
-
-    for (uint8_t i=0; i<n_samples; i++) {
-        iir[i] = bh1750_dev->readLightLevel();             // Read the BH1750 lux value
-        delay(ms_reads);
-    }
-
-    return filter_result(iir, n_samples);
+    return capture_and_filter();
 }
 
-
-/* Red light values for DO */
 const float DO_Sensor::capture_Red_LED() {
-    digitalWrite(R_pin, HIGH);
+    digitalWrite(R_pin, HIGH);                                       // Activate red LED
     delay(500);
 
-    float iir[n_samples];
-    for (uint8_t i=0; i<n_samples; i++) {
-        iir[i] = bh1750_dev->readLightLevel();             // Read the BH1750 lux value
-        delay(ms_reads);
-    }
-    digitalWrite(R_pin, LOW);
+    float result = capture_and_filter();
+    digitalWrite(R_pin, LOW);                                        // Deactivate red LED
 
-    return filter_result(iir, n_samples);
+    return result;
 }
 
-/* Green light values for DO */
 const float DO_Sensor::capture_Green_LED() {
-    digitalWrite(G_pin, HIGH);
+    digitalWrite(G_pin, HIGH);                                       // Activate green LED
     delay(500);
 
-    float iir[n_samples];
-    for (uint8_t i=0; i<n_samples; i++) {
-        iir[i] = bh1750_dev->readLightLevel();
-        delay(ms_reads);
-    }
+    float result = capture_and_filter();
+    digitalWrite(G_pin, LOW);                                        // Deactivate green LED
 
-    digitalWrite(G_pin, LOW);    
-    return filter_result(iir, n_samples);
+    return result;
 }
 
-/* Blue light values for DO */
 const float DO_Sensor::capture_Blue_LED() {
-    digitalWrite(B_pin, HIGH);
+    digitalWrite(B_pin, HIGH);                                       // Activate blue LED
     delay(500);
 
-    float iir[n_samples];
-    for (uint8_t i=0; i<n_samples; i++) {
-        iir[i] = bh1750_dev->readLightLevel();
-        delay(ms_reads);
-    }
+    float result = capture_and_filter();
+    digitalWrite(B_pin, LOW);                                        // Deactivate blue LED
 
-    digitalWrite(B_pin, LOW);
-    return filter_result(iir, n_samples);
+    return result;
 }
 
-/* White light values for DO */
 const float DO_Sensor::capture_White_LED() {
-    digitalWrite(R_pin, HIGH);
+    digitalWrite(R_pin, HIGH);                                       // Activate R,G,B LEDs
     digitalWrite(G_pin, HIGH);
     digitalWrite(B_pin, HIGH);
     delay(500);
 
-    float iir[n_samples];
-    for (uint8_t i=0; i<n_samples; i++) {
-        iir[i] = bh1750_dev->readLightLevel();
-        delay(ms_reads);
-    }
-
-    digitalWrite(R_pin, LOW);
+    float result = capture_and_filter();
+    digitalWrite(R_pin, LOW);                                        // Deactivate R,G,B LEDs
     digitalWrite(G_pin, LOW);
     digitalWrite(B_pin, LOW);
-    return filter_result(iir, n_samples);
+
+    return result;
 }
 
-/* Get instant lux value without any led activated */
 const float DO_Sensor::get_instant_lux() {
     return bh1750_dev->readLightLevel();
 }
@@ -149,16 +118,21 @@ const float DO_Sensor::get_White_value() {
     return lux_results.W_value;
 }
 
-/* Sort a list of value items and calculate the efective value */
-float DO_Sensor::filter_result(float* list, uint8_t n_samples) {
-    sort_result(list, n_samples);
-    
-    // Calculate the final result
-    float sum_values = 0;
-    for (uint8_t r=1; r < (n_samples-1); r++)                        // Sums the values except the first and last elements
-        sum_values += list[r];
-    
-    return (sum_values / (n_samples-2));
+const float DO_Sensor::capture_and_filter() {
+    float read_v, min_v=0, max_v=0, total_v=0;
+
+    for (uint8_t i=n_samples; i>0; i--) {
+        read_v = bh1750_dev->readLightLevel();
+        total_v += read_v;
+
+        if (read_v < min_v) min_v = read_v;                          // Update de min value
+        if (read_v > max_v) max_v = read_v;                          // Update de max value
+
+        delay(ms_reads);
+    }
+    total_v = total_v - min_v - max_v;                               // Discards lower and higher value for the average
+
+    return (total_v / (n_samples-2));
 }
 
 void DO_Sensor::set_n_samples(const uint8_t _n_samples) {
@@ -181,16 +155,3 @@ bool DO_Sensor::is_init() {
     return initialized;
 }
 
-void DO_Sensor::sort_result(float* arr, const uint8_t n_samples) {
-    float tmp_val;
-
-    for (int i=0; i < (n_samples-1); i++) {
-        for (int j=0; j < (n_samples-(i+1)); j++) {
-            if (arr[j] > arr[j+1]) {
-                tmp_val = arr[j];
-                arr[j] = arr[j+1];
-                arr[j+1] = tmp_val;
-            }
-        }
-    }
-}

@@ -9,11 +9,11 @@
 #include "DateTime_RTC.h"
 
 
-DateTime_RTC::DateTime_RTC(void) : RTC_DS3231() {
+DateTime_RTC::DateTime_RTC() : RTC_DS3231() {
     initialized = false;
 }
 
-boolean DateTime_RTC::begin() {
+bool DateTime_RTC::begin() {
     initialized = RTC_DS3231::begin();
 
     return initialized;
@@ -51,6 +51,6 @@ uint32_t DateTime_RTC::inc_unixtime(int32_t diffSecs) {
   return now().unixtime() + diffSecs;
 }
 
-int32_t DateTime_RTC::unix_time_remain(int32_t target) {
+int32_t DateTime_RTC::unix_time_diff(int32_t target) {
   return target - now().unixtime();
 }

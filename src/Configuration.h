@@ -16,7 +16,7 @@
 //===========================================================
 #define DEBUG_DEF_ENABLED          1                       // Indicates whether serial debugging is enabled or not by default
 #define SERIAL_MON                 Serial                  // Serial output for debug console
-#define SERIAL_BAUD                9600                    // Data rate in bits per second (baud)
+#define SERIAL_BAUD                115200                  // Data rate in bits per second (baud)
 
 
 //===========================================================
@@ -26,6 +26,19 @@
 #define TINY_GSM_RX_BUFFER         512                     // Increase the buffer
 #define SERIAL_AT                  Serial2                 // Serial port for GPRS Modem
 #define DUMP_AT_COMMANDS           0                       // Active if you want to see all AT commands (0=disabled, 1=enabled)
+
+#define GPRS_APN                   "internet"              // GPRS credentials
+#define GPRS_USER                  ""                      //
+#define GPRS_PASS                  ""                      //
+
+
+//===========================================================
+//==================== Report server v1 =====================
+//===========================================================
+#define HTTP_REP1_SERVER       "sensors.openspirulina.com" // Server connect for sending data
+#define HTTP_REP1_PORT             80                      // Server port
+#define HTTP_REP1_ID_ARDUINO       "21"                    // Define identity of Arduino
+#define HTTP_REP1_PIN_ARDUINO      "12345"                 // Define pin
 
 
 //===========================================================
@@ -47,6 +60,7 @@
 #define LCD_INIT_MSG_L2            "   -------------"      //
 #define LCD_INIT_MSG_L3            ""                      //
 #define LCD_INIT_MSG_L4            "       Please wait.."  //
+#define LCD_INIT_TIMEOUT           5000                    // Time that the start message is displayed
 
 
 //===========================================================

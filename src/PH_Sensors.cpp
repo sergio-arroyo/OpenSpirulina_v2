@@ -26,32 +26,31 @@ bool PH_Sensors::add_sensor(uint8_t pin) {
         return false;
 }
 
-/* Capture temperatures & humidities from all DHT sensors */
-void PH_Sensors::store_all_results() {
+void PH_Sensors::capture_all_sensors() {
 	for (uint8_t i=0; i<n_sensors; i++)
         arr_results[i] = get_sensor_value(i);                  //Read Temperature
 }
 
-/* Return pH value from a specific sensor */
 const float PH_Sensors::get_sensor_value(uint8_t n_sensor) {
-    if (n_sensor >= n_sensors) return 0;                       //If n_sensor is out of bounds for number of sensors attached, return 0
+    if (n_sensor >= n_sensors) return 0;                       // If n_sensor is out of bounds for number of sensors attached, return 0
 
-    int buffer[10];
-    for (uint8_t i=0; i<n_samples; i++) {                      //Get 10 sample value from the sensor for smooth the value
-		buffer[i] = analogRead(pin_sensors[n_sensor]);
-		delay(10);
+    float read_v, min_v=0, max_v=0, total_v=0;
+    for (uint8_t i=n_samples; i>0; i--) {
+        read_v = analogRead(pin_sensors[n_sensor]);
+        total_v += read_v;
+
+        if (read_v < min_v) min_v = read_v;                    // Update de min value
+        if (read_v > max_v) max_v = read_v;                    // Update de max value
+        delay(10);
     }
-	
-    sort_result(buffer, n_samples);
 
-    buffer[0] = 0;                                             //Reuse buffer[0] possition to calculate de final value
-    for (uint8_t i=2; i<n_samples-2; i++)                      //Take the average value of 6 center sample
-        buffer[0] += buffer[i];
-	
-    float pH_value = (float)buffer[0]*5.0/1024/(n_samples-1);  //Convert the analog into millivolt
-    pH_value = 3.5 * pH_value;                                 //Convert the millivolt into pH value
+    total_v = total_v - min_v - max_v;                         // Discards lower and higher value for the average
+    total_v /= (n_samples-2);
+    
+    float pH_value = (float)total_v * 5.0 / 1024;              // Convert the analog into millivolt
+    pH_value *= 3.5;                                           // Convert the millivolt into pH value
 
-    return pH_value;                                           //Return pH_value for that sensorPin
+    return pH_value;                                           // Return pH_value for that sensorPin
 }
 
 const uint8_t PH_Sensors::get_n_sensors() {
@@ -77,19 +76,5 @@ void PH_Sensors::bulk_results(String* str, bool print_tag, char delim, bool rese
             str->concat("=");
         }
         str->concat(arr_results[i]);
-    }
-}
-
-void PH_Sensors::sort_result(int* arr, const uint8_t n_samples) {
-    int tmp_val;
-
-    for (uint8_t i=0; i < (n_samples-1); i++) {
-        for (uint8_t j=0; j < (n_samples-(i+1)); j++) {
-            if (arr[j] > arr[j+1]) {
-                tmp_val = arr[j];
-                arr[j] = arr[j+1];
-                arr[j+1] = tmp_val;
-            }
-        }
     }
 }

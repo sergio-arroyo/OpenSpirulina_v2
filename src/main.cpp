@@ -1,8 +1,10 @@
 /*
  * Send Sensors Data To HTTP (PHP) Server
  *
- * Autor: Fran Romero https://github.com/yatan
- *        OpenSpirulina http://www.openspirulina.com
+ * Autors:
+ *   OpenSpirulina http://www.openspirulina.com
+ *   Fran Romero   https://github.com/yatan
+ *   Sergio Arroyo https://github.com/sergio-arroyo
  *
  * Based on:
  * 
@@ -73,27 +75,7 @@ Current_Sensors *curr_sensors;                             // Current sensors
 File myFile;
 char fileName[SD_MAX_FILENAME_SIZE] = "";                  // Name of file to save data readed from sensors
 
-
-
-/*****
-AUTHENTICATION ARDUINO
-*****/
-const uint16_t id_arduino  = 21;                           // Define de identity of Arduino
-const uint16_t pin_arduino = 12345;
-
-/****
-NETWORK SETTINGS 
-****/
-const char  server[] = "sensors.openspirulina.com";        // Server connect for sending data
-const uint16_t  port = 80;
-byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};         // assign a MAC address for the ethernet controller:
-
-/*****
-GPRS credentials
-*****/
-const char apn[]  = "internet";                            // Leave empty, if missing user or pass
-const char user[] = "";
-const char pass[] = "";
+uint8_t eth_mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};  // MAC address for the ethernet controller
 
 bool conexio_internet = false;
 
@@ -105,19 +87,15 @@ bool conexio_internet = false;
  | |\  | |__| | |  | | |_) | |____| | \ \   ____) | |____| |\  |____) | |__| | | \ \ ____) |
  |_| \_|\____/|_|  |_|____/|______|_|  \_\ |_____/|______|_| \_|_____/ \____/|_|  \_\_____/
  */
-const uint8_t num_CO2 = 0;                                 // CO2 sensor MAX ?
-
-enum opt_Internet_type {                                   // Valid internet types
+enum opt_Internet_type : uint8_t {                         // Valid internet types
 	it_none = 0,
 	it_Ethernet,
 	it_GPRS,
 	it_Wifi
 };
-
 const opt_Internet_type opt_Internet = it_none;            // None | Ethernet | GPRS Modem | Wifi <-- Why not? Dream on it
 
-
-/*   ANALOG PINS  */
+const uint8_t num_CO2 = 0;                                 // CO2 sensor MAX ?
 const uint8_t pins_co2[num_CO2] = {};                      // CO2 pin (Analog)
 
 
@@ -320,7 +298,7 @@ void SD_write_header(const char* _fileName) {
     }
 
     // ambient1_temp#ambient1_humetat#
-    for (uint8_t i=0; i<dht_sensors.get_num_sensors(); i++) {
+    for (uint8_t i=0; i<dht_sensors.get_n_sensors(); i++) {
         myFile.print(F("ambient_"));
         myFile.print(i);
         myFile.print(F("_temp#"));
@@ -401,7 +379,7 @@ void SD_save_data(const char* _fileName) {
     
     // Sensors DHT
 	//TODO: Cambiar el volcado de datos por el de la funcion definida ya en la clase DHT_Sensor
-    for (uint8_t i=0; i<dht_sensors.get_num_sensors(); i++) {
+    for (uint8_t i=0; i<dht_sensors.get_n_sensors(); i++) {
         tmp_data += dht_sensors.get_Temperature(i);
         tmp_data += F("#");
 		tmp_data += dht_sensors.get_Humidity(i);
@@ -463,7 +441,7 @@ void SD_save_data(const char* _fileName) {
 bool send_data_ethernet(String cadena) {
   if (!conexio_internet) {
     SERIAL_MON.println(F("[Ethernet] Conecting to router..."));
-    conexio_internet = Ethernet.begin(mac);
+    conexio_internet = Ethernet.begin(eth_mac);
 
     if (!conexio_internet) {
       SERIAL_MON.println(F("[Ethernet] Conection to router Failed"));
@@ -473,7 +451,7 @@ bool send_data_ethernet(String cadena) {
   
   eth_client.stop();
   // if there's a successful connection:
-  if (eth_client.connect(server, 80)) {
+  if (eth_client.connect(HTTP_REP1_SERVER, HTTP_REP1_PORT)) {
     if (DEBUG)
       SERIAL_MON.println(F("Connecting to openspirulina..."));
 
@@ -510,63 +488,69 @@ bool connect_network() {
 }
 
 bool send_data_modem(String cadena, bool step_retry) {
-  // Set GSM module baud rate
-  SERIAL_AT.begin(9600);
+    // Set GSM module baud rate
+    SERIAL_AT.begin(9600);
 
-  delay(3000);
-  if (DEBUG)
-    SERIAL_MON.println(F("Initializing modem..."));
-    
-  if (!modem.restart()) {
-    SERIAL_MON.println(F("Modem init [fail]"));
-    delay(1000);
-    return false;
-  }
-
-  if (DEBUG) {
-    SERIAL_MON.println(F("Modem init [OK]"));    
-    String modemInfo = modem.getModemInfo();
-    SERIAL_MON.print(F("Modem: "));
-    SERIAL_MON.println(modemInfo);
-  }
-  // Unlock your SIM card with a PIN
-  //modem.simUnlock("1234");    
-  if (connect_network()) {
-    // Network OK
-    SERIAL_MON.print(F("Connecting to "));
-    SERIAL_MON.println(apn);
-    if (!modem.gprsConnect(apn, user, pass)) {
-      SERIAL_MON.println(F("GRPS [fail]"));
-      delay(1000);
-
-      if(step_retry == false) {
-        SERIAL_MON.println(F("[Modem] Retrying connection !"));
-        send_data_modem(cadena, true);  // Reconnect modem and init again
-      }      
-      return false;
+    delay(3000);
+    if (DEBUG) SERIAL_MON.println(F("Initializing modem..."));
+        
+    if (!modem.restart()) {
+        if (DEBUG) SERIAL_MON.println(F("Modem init [fail]"));
+        delay(1000);
+        return false;
     }
-    SERIAL_MON.println(F("GPRS [OK]"));
-  
+
+    if (DEBUG) {
+        SERIAL_MON.println(F("Modem init [OK]"));    
+        SERIAL_MON.print(F("Modem: "));
+        SERIAL_MON.println( modem.getModemInfo() );
+    }
+
+    // Unlock your SIM card with a PIN
+    //modem.simUnlock("1234");    
+    if (connect_network()) {
+        // Network OK
+        if (DEBUG) {
+            SERIAL_MON.print(F("Connecting to "));
+            SERIAL_MON.println(GPRS_APN);
+        }
+
+        if (!modem.gprsConnect(GPRS_APN, GPRS_USER, GPRS_PASS)) {
+            if (DEBUG) SERIAL_MON.println(F("GRPS [fail]"));
+            delay(1000);
+
+            if (step_retry == false) {
+                if (DEBUG) SERIAL_MON.println(F("[Modem] Retrying connection !"));
+                send_data_modem(cadena, true);  // Reconnect modem and init again
+            }      
+            return false;
+        }
+    
     IPAddress local = modem.localIP();
-    SERIAL_MON.print(F("Local IP: "));
-    SERIAL_MON.println(local);
-  
-    SERIAL_MON.print(F("Connecting to "));
-    SERIAL_MON.println(server);
-    if (!client.connect(server, port)) {
-      SERIAL_MON.println(F("Server [fail]"));
-      delay(1000);
-      if(step_retry == false) {
-        SERIAL_MON.println(F("[Modem] Retrying connection !"));
-        send_data_modem(cadena, true);  // Reconnect modem and init again
-      }      
-      return false;
+    if (DEBUG) {
+        SERIAL_MON.println(F("GPRS [OK]"));
+        SERIAL_MON.print(F("Local IP: "));
+        SERIAL_MON.println(local);
+
+        SERIAL_MON.print(F("Connecting to "));
+        SERIAL_MON.println(HTTP_REP1_SERVER);
+    }
+
+    if (!client.connect(HTTP_REP1_SERVER, HTTP_REP1_PORT)) {
+        SERIAL_MON.println(F("Server [fail]"));
+        delay(1000);
+
+        if (step_retry == false) {
+            SERIAL_MON.println(F("[Modem] Retrying connection !"));
+            send_data_modem(cadena, true);  // Reconnect modem and init again
+        }      
+        return false;
     }
     SERIAL_MON.println(F("Server [OK]"));
   
       // Make a HTTP GET request:
     client.print(cadena + " HTTP/1.0\r\n");
-    client.print(String("Host: ") + server + "\r\n");
+    client.print(String("Host: ") + HTTP_REP1_SERVER + "\r\n");
     client.print(F("Connection: close\r\n\r\n"));
     /*
       // Wait for data to arrive
@@ -614,7 +598,8 @@ bool send_data_modem(String cadena, bool step_retry) {
     }
     return false; 
   }
-  return false;
+    
+    return false;
 }
 
 bool send_data_server() {
@@ -622,11 +607,11 @@ bool send_data_server() {
 	
 	// Append our ID Arduino
 	cadena += "idarduino=";
-	cadena += id_arduino;
+	cadena += HTTP_REP1_ID_ARDUINO;
 
 	// Append PIN for that ID
 	cadena += "&pin=";
-	cadena += pin_arduino;
+	cadena += HTTP_REP1_PIN_ARDUINO;
 
 	// Append temperatures
     uint8_t max_val = (wp_t_sensors)?wp_t_sensors->get_n_pairs():0;
@@ -644,7 +629,7 @@ bool send_data_server() {
 
 	// Append Ambient temperatures and Humidity
 	//TODO: Cambiar el volcado de datos por el de la funcion definida ya en la clase DHT_Sensor
-	for (uint8_t i=0; i<dht_sensors.get_num_sensors(); i++) {
+	for (uint8_t i=0; i<dht_sensors.get_n_sensors(); i++) {
 		cadena += "&ta";
 		cadena += i+1;
 		cadena += "=";
@@ -752,7 +737,7 @@ void SD_load_DHT_sensors(Load_SD_Config* ini) {
 	} while (found);
 
 	// If no configuration found in IniFile..
-	if (dht_sensors.get_num_sensors() == 0) {
+	if (dht_sensors.get_n_sensors() == 0) {
 		if (DEBUG) SERIAL_MON.println(F("No DHT config. found. Loading default.."));
 		for (i=0; i<DHT_DEF_NUM_SENSORS; i++) {
 			if (DEBUG)  {
@@ -1011,9 +996,9 @@ void SD_load_Current_sensors(IniFile* ini) {
  |_____/|______|  |_|   \____/|_|
 */
 void setup() {
-    pinMode(PH_CALIBRATION_SWITCH_PIN, INPUT);                            //Configure the input pin for the calibration switch
+    pinMode(PH_CALIBRATION_SWITCH_PIN, INPUT);                            // Configure the input pin for the calibration switch
 
-    Wire.begin();                                                         //Initialize the I2C bus (BH1750 library doesn't do this automatically)
+    Wire.begin();                                                         // Initialize the I2C bus (BH1750 library doesn't do this automatically)
 
 	// Initialize serial if DEBUG default value is true
 	if (DEBUG) SERIAL_MON.begin(SERIAL_BAUD);
@@ -1061,7 +1046,8 @@ void setup() {
 
 		lcd.init();
 		lcd.show_init_msg(LCD_INIT_MSG_L1, LCD_INIT_MSG_L2,
-						  LCD_INIT_MSG_L3, LCD_INIT_MSG_L4, 5000);
+						  LCD_INIT_MSG_L3, LCD_INIT_MSG_L4,
+                          LCD_INIT_TIMEOUT);
     }
 
 	// Inicialitza RTC en cas de disposar
@@ -1073,6 +1059,7 @@ void setup() {
 			if (DEBUG) SERIAL_MON.println(dateTimeRTC.getDateTime());     // RTC works. Print current time
 		}
 		else {
+            RTC_enabled = false;
 			if (DEBUG) SERIAL_MON.println(F("No clock working"));         // RTC does not work
 		}
 	}
@@ -1082,15 +1069,15 @@ void setup() {
 		// give the ethernet module time to boot up:
 		delay(2000);
 		if (DEBUG) SERIAL_MON.println(F("Starting Ethernet Module"));
-	
-		// start the Ethernet connection using a fixed IP address and DNS server:
-		// Ethernet.begin(mac, ip, myDns, gateway, subnet);
+
+		// Start the Ethernet connection using a fixed IP address and DNS server:
+		// Ethernet.begin(eth_mac, ip, myDns, gateway, subnet);
 		// DHCP IP ( For automatic IP )
-		conexio_internet = Ethernet.begin(mac);
+		conexio_internet = Ethernet.begin(eth_mac);
 
 		if (!conexio_internet) SERIAL_MON.println(F("[Ethernet] Fail obtain IP"));
 		
-		// print the Ethernet board/shield's IP address:
+		// Print the Ethernet board/shield's IP address:
 		if (DEBUG) {
 			SERIAL_MON.print(F("My IP address: "));
 			SERIAL_MON.println(Ethernet.localIP());
@@ -1129,7 +1116,7 @@ void loop() {
 
     if (curr_sensors) {
        if (DEBUG) SERIAL_MON.println(F("Capture current.."));
-       curr_sensors->capture_all_currents();
+       curr_sensors->capture_all_sensors();
     }
 
     // Si tenim sondes de temperatura
@@ -1141,11 +1128,11 @@ void loop() {
 	// Capture PH for each pH Sensor
     if (pH_sensors) {
         if (DEBUG) SERIAL_MON.println(F("Capture pH sensors.. "));
-        pH_sensors->store_all_results();
+        pH_sensors->capture_all_sensors();
     }
 
     // Capture PH for each pH Sensor
-	if (dht_sensors.get_num_sensors() > 0) {
+	if (dht_sensors.get_n_sensors() > 0) {
 		if (DEBUG) SERIAL_MON.println(F("Capture DHT sensor(s).."));
 		dht_sensors.capture_all_DHT();
 	}
@@ -1204,15 +1191,15 @@ void loop() {
 
         if (DEBUG) {
             SERIAL_MON.print(F("Waiting for "));
-            SERIAL_MON.print( dateTimeRTC.unix_time_remain(time_next_loop) );
+            SERIAL_MON.print( dateTimeRTC.unix_time_diff(time_next_loop) );
             SERIAL_MON.println(F(" seconds"));
         }
         
-        int32_t time_remain;
+        int32_t time_diff;
         do {
-            time_remain = dateTimeRTC.unix_time_remain(time_next_loop);
+            time_diff = dateTimeRTC.unix_time_diff(time_next_loop);
 
-            if (LCD_enabled) lcd.print_msg_val(0, 3, "Next read.: %ds ", time_remain);
+            if (LCD_enabled) lcd.print_msg_val(0, 3, "Next read.: %ds ", time_diff);
             if (DEBUG) SERIAL_MON.print(F("."));
             if (digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH) {
                 if (DEBUG) SERIAL_MON.println(F("Calibration switch activated!"));
@@ -1220,7 +1207,7 @@ void loop() {
             }
 
             delay(1000);
-        } while (time_remain > 0);
+        } while (time_diff > 0);
     }
 
   /* If RTC is not available */
