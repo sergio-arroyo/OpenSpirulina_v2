@@ -35,7 +35,7 @@ void LCD_Screen::clear() {
 // LCD initial messages
 void LCD_Screen::show_init_msg(const char L1[], const char L2[],
 								const char L3[], const char L4[],
-								const unsigned long msWait) {
+								const uint16_t msWait) {
 	clear();        print(L1);
 	setCursor(0,1);	print(L2);
 	setCursor(0,2);	print(L3);
