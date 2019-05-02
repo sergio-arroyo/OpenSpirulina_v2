@@ -36,7 +36,7 @@
 #include <SD.h>
 #include <TinyGsmClient.h>
 #include <Ethernet2.h>                                     // Shield W5500 with Ethernet2.h will be used in this version of the project
-#include "MemoryFree.h"
+#include <MemoryFree.h>
 
 // OpenSpirulina libs
 #include "Load_SD_Config.h"
@@ -245,7 +245,7 @@ void mostra_LCD() {
 
 /* Capture data in calibration mode */
 void pH_calibration() {
-    if (DEBUG) SERIAL_MON.println(F("Starting calibration mode..."));
+    if (DEBUG) SERIAL_MON.println(F("Starting calibration mode.."));
     char buffer_L[6];                                      // String buffer
     
     lcd.clear();                                           // Clear screen
@@ -1213,7 +1213,7 @@ void loop() {
   /* If RTC is not available */
   else {
     // Waiting for 10 minutes
-    for (uint16_t j=0; j<DELAY_SECS_NEXT_READ; j++) {
+    for (uint16_t j=DELAY_SECS_NEXT_READ; j>0; j--) {
       if (digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH) {
         if (DEBUG) SERIAL_MON.println(F("Calibration switch activated!"));
         break;

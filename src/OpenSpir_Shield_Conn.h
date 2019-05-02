@@ -19,7 +19,7 @@
 #define OPENSPIR_SHIELD_J5         PIN_A14                 // Analog 14 - Current sensor 2
 #define OPENSPIR_SHIELD_J6         PIN_A15                 // Analog 15
 
-#define OPENSPIR_SHIELD_SW1        43                      // Switch 1 calibration
+#define OPENSPIR_SHIELD_SW1        36                      // Switch 1 calibration
 
 #define OPENSPIR_VGA_PIN1          24                      // Red led
 #define OPENSPIR_VGA_PIN2          26                      // Blue led

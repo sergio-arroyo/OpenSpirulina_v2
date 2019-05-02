@@ -76,7 +76,6 @@
 //===========================================================
 //=========================== etc ===========================
 //===========================================================
-#define STEP_DELAY_TIME            100                     // Wait value (in ms) between reading intervals
 #define DELAY_SECS_NEXT_READ       30                      // Timer (in seconds) of waiting between readings of the sensors
 
 
@@ -84,7 +83,7 @@
 //======================= DHT sensor ========================
 //===========================================================
 #define DHT_DEF_NUM_SENSORS        1                       // Number of sensors actived by default
-const uint8_t DHT_DEF_SENSORS[] =  {32};                   // Array for default pin for DHT sensors
+const uint8_t DHT_DEF_SENSORS[] =  {OPENSPIR_VGA_PIN4};    // Array for default pin for DHT sensors
 #define DHT_DEF_TYPE               DHT22                   // Default DHT sensors type
 #define DHT_MAX_SENSORS            5                       // Maximum number of sensors that will be allowed
 
@@ -113,9 +112,10 @@ const uint8_t DHT_DEF_SENSORS[] =  {32};                   // Array for default 
 //===========================================================
 //======================== pH sensor ========================
 //===========================================================
-#define PH_CALIBRATION_SWITCH_PIN  43                      // Pin for pH calibration switch
+#define PH_CALIBRATION_SWITCH_PIN  OPENSPIR_SHIELD_SW1     // Pin for pH calibration switch
 #define PH_DEF_NUM_SENSORS         1                       // Number of sensors actived by default
-const uint8_t PH_DEF_PIN_SENSORS[] =  {8};                 // Array for default pins for pH sensors
+const uint8_t PH_DEF_PIN_SENSORS[] =  {OPENSPIR_SHIELD_J1  // Array for default pins for pH sensors
+                                      };
 #define PH_MAX_NUM_SENSORS         3                       // Maximum number of pH sensors that can be connected
 #define PH_SENS_N_SAMP_READ        10                      // Number of samples read from sensor
 
@@ -148,7 +148,9 @@ const uint8_t WP_T_DEF_SENST_PAIRS[][2][8] = {             // Define the pairs
 #define CURR_SENS_MS_BE            30L * 1000L             // Time in seconds between current ini current end measure
 
 #define CURR_SENS_DEF_NUM          2                       // Number of current sensors by default
-const uint8_t CURR_SENS_DEF_PINS[] = {11, 22};
+const uint8_t CURR_SENS_DEF_PINS[] = {OPENSPIR_SHIELD_J4,  // Array for default pins for current sensors
+                                      OPENSPIR_SHIELD_J5
+                                     };
 const uint8_t CURR_SENS_DEF_MODELS[] = {0, 1};
 const uint16_t CURR_SENS_DEF_VAR[] = {20, 30};
 
