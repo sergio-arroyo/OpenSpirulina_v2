@@ -169,7 +169,6 @@ private:
     } lux_results;                        
 
     const float capture_and_filter();                      // Capture a number of lux read values and calculate the mean value
-
 };
 
 #endif

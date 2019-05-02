@@ -95,7 +95,7 @@ enum opt_Internet_type : uint8_t {                         // Valid internet typ
 };
 const opt_Internet_type opt_Internet = it_none;            // None | Ethernet | GPRS Modem | Wifi <-- Why not? Dream on it
 
-const uint8_t num_CO2 = 0;                                 // CO2 sensor MAX ?
+const uint8_t num_CO2 = 0;                                 // CO2 sensor MAX?
 const uint8_t pins_co2[num_CO2] = {};                      // CO2 pin (Analog)
 
 
@@ -222,11 +222,11 @@ void mostra_LCD() {
 
     // Shows on LCD the average of the two temperatures of  the first pair
     if (wp_t_sensors && wp_t_sensors->get_n_pairs() > 0)
-        lcd.add_value_read("T1:", wp_t_sensors->get_result_pair_mean(0));
+        lcd.add_value_read("T1:", wp_t_sensors->get_result_pair(0, WP_Temp_Sensors::S_Both));
     
     // Shows on LCD the average of the two temperatures of  the first pair
     if (wp_t_sensors && wp_t_sensors->get_n_pairs() > 1)
-        lcd.add_value_read("T2:", wp_t_sensors->get_result_pair_mean(1));
+        lcd.add_value_read("T2:", wp_t_sensors->get_result_pair(1, WP_Temp_Sensors::S_Both));
     
     if (pH_sensors && pH_sensors->get_n_sensors() > 0)
         lcd.add_value_read("pH1:", pH_sensors->get_sensor_value(0));
@@ -371,9 +371,9 @@ void SD_save_data(const char* _fileName) {
 
     uint8_t max_val = (wp_t_sensors)?wp_t_sensors->get_n_pairs():0;
     for (uint8_t i=0; i<max_val; i++) {                      // Temperatures del cultiu Tn_s, Tn_b, ...
-        tmp_data += wp_t_sensors->get_result_pair(i, 1);
+        tmp_data += wp_t_sensors->get_result_pair(i, WP_Temp_Sensors::S_Surface);
         tmp_data += F("#");
-        tmp_data += wp_t_sensors->get_result_pair(i, 2);
+        tmp_data += wp_t_sensors->get_result_pair(i, WP_Temp_Sensors::S_Background);
         tmp_data += F("#");
     }
     
@@ -619,12 +619,12 @@ bool send_data_server() {
 		cadena += F("&temp");
 		cadena += i+1;
 		cadena += F("_s=");
-		cadena += wp_t_sensors->get_result_pair(i, 1);
+		cadena += wp_t_sensors->get_result_pair(i, WP_Temp_Sensors::S_Surface);
 
 		cadena += F("&temp");
 		cadena += i+1;
 		cadena += F("_b=");
-		cadena += wp_t_sensors->get_result_pair(i, 2);
+		cadena += wp_t_sensors->get_result_pair(i, WP_Temp_Sensors::S_Background);
 	}
 
 	// Append Ambient temperatures and Humidity

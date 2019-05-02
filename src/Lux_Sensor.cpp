@@ -35,26 +35,25 @@ bool Lux_Sensor::begin(uint8_t addr, uint8_t addr_pin) {
     return true;
 }
 
-/* Capture the lux value from sensor */
 const float Lux_Sensor::capture_lux() {
-    float iir[n_samples];
-
-    for (uint8_t i=0; i<n_samples; i++) {
-        iir[i] = bh1750_dev->readLightLevel();             // Read value from the lux sensor
-    }
-    return filter_result(iir, n_samples);
+    return capture_and_filter();
 }
 
-/* Sort a list of value items and calculate the efective value */
-const float Lux_Sensor::filter_result(float* list, uint8_t n_samples) {
-    sort_result(list, n_samples);
+const float Lux_Sensor::capture_and_filter() {
+    float read_v, min_v=0, max_v=0, total_v=0;
+
+    for (uint8_t i=n_samples; i>0; i--) {
+        read_v = bh1750_dev->readLightLevel();
+        total_v += read_v;
+
+        if (read_v < min_v) min_v = read_v;                          // Update de min value
+        if (read_v > max_v) max_v = read_v;                          // Update de max value
+
+        delay(10);
+    }
+    total_v = total_v - min_v - max_v;                               // Discards lower and higher value for the average
     
-    // Calculate the final result
-    float sum_values = 0;
-    for (uint8_t r=1; r < (n_samples-1); r++)                        // Sums the values except the first and last elements
-        sum_values += list[r];
-    
-    return (sum_values / (n_samples-2));
+    return (total_v / (n_samples-2));
 }
 
 void Lux_Sensor::set_n_samples(const uint8_t _n_samples) {
@@ -67,18 +66,4 @@ uint8_t Lux_Sensor::get_n_samples() {
 
 bool Lux_Sensor::is_init() {
     return initialized;
-}
-
-void Lux_Sensor::sort_result(float* arr, const uint8_t n_samples) {
-    float tmp_val;
-
-    for (uint8_t i=0; i < (n_samples-1); i++) {
-        for (uint8_t j=0; j < (n_samples-(i+1)); j++) {
-            if (arr[j] > arr[j+1]) {
-                tmp_val = arr[j];
-                arr[j] = arr[j+1];
-                arr[j+1] = tmp_val;
-            }
-        }
-    }
 }

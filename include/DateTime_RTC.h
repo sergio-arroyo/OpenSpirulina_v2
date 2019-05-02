@@ -73,7 +73,7 @@ public:
 
 private:
     bool initialized;
-
+    
 };
 
 #endif

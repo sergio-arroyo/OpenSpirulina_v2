@@ -39,7 +39,7 @@ bool DO_Sensor::begin(uint8_t _addr, uint8_t _R_pin, uint8_t _G_pin, uint8_t _B_
 }
 
 void DO_Sensor::capture_DO() {
-    lux_results.preLux_value = get_preLux_value();         // Get pre Lux value without any actived led
+    lux_results.preLux_value = capture_preLux();           // Get pre Lux value without any actived led
     lux_results.R_value = capture_Red_LED();               // Get the values for each LED color from the DO
     lux_results.G_value = capture_Green_LED();
     lux_results.B_value = capture_Blue_LED();
@@ -51,11 +51,11 @@ const float DO_Sensor::capture_preLux() {
 }
 
 const float DO_Sensor::capture_Red_LED() {
-    digitalWrite(R_pin, HIGH);                                       // Activate red LED
+    digitalWrite(R_pin, HIGH);                             // Activate red LED
     delay(500);
 
     float result = capture_and_filter();
-    digitalWrite(R_pin, LOW);                                        // Deactivate red LED
+    digitalWrite(R_pin, LOW);                              // Deactivate red LED
 
     return result;
 }

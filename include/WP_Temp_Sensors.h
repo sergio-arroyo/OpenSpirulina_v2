@@ -21,23 +21,95 @@ public:
         uint8_t b_sensor[8];                                      // Defines the background sensor address
     };
 
+    enum WP_Temp_sensor_t : uint8_t {
+        S_Surface = 0,
+        S_Background,
+        S_Both
+    };
+
+    /**
+     * Constructor
+     **/
     WP_Temp_Sensors(uint8_t oneWire_pin);
-    
-    void begin();                                                 // Initialize bus
+
+    /**
+     * Initialize the bus to control DS18 sensors
+     **/
+    void begin();
+
+    /**
+     * Add new WP temp. sensor to the system
+     * 
+     * @param s_sensor Address of the surface sensor to be inserted
+     * @param b_sensor Address of the background sensor to be inserted
+     * @return Returns:
+     *             0 if sensor added correctly
+     *             1 if the surface sensor not connected
+     *             2 if the background sensor not connected
+     *             3 no more pairs of the allowed ones can be inserted 
+     **/
     uint8_t add_sensors_pair(const uint8_t* s_sensor, 
-                             const uint8_t* b_sensor);            // Add pair sensor of sensors
-    void store_all_results();                                     // Get values from all sensors and calculate the respective means
+                             const uint8_t* b_sensor);
+
+    /** 
+     * Read all temperature sensors and store the values to internal array
+     **/
+    void store_all_results();
     
-    const float get_result_pair(uint8_t n_pair, uint8_t n_sensor);
-    const float get_result_pair_mean(uint8_t n_pair);
-    const float get_instant_pair_mean(uint8_t n_pair,
-                                      bool send_req = true);      // Get instant mean from specific sensor pair
-    const uint8_t get_n_pairs();                                  // Get the number of pair sensors added on system
+
+    /* Return result from sensor pair. n_sensor=1: return surface value, n_sensor!=2: return background value */
+
+    /**
+     * Return result from sensor pair
+     * 
+     * @param n_pair Number of pair sensor to be consulted
+     * @param sensor The sensor from which you want to obtain the read value:
+     *             S_Surface: returns the surface sensor value
+     *             S_Background: returns the background sensor value
+     *             S_Both: returns de mean of both values
+     * @return Get de value stored for the especific sensor
+     **/
+    const float get_result_pair(uint8_t n_pair, WP_Temp_sensor_t sensor);
+
+    /**
+     * Return the instant result read from sensor pair
+     * 
+     * @param n_pair Number of pair sensor to be consulted
+     * @param sensor The sensor from which you want to obtain the read value:
+     *             S_Surface: returns the surface sensor value
+     *             S_Background: returns the background sensor value
+     *             S_Both: returns de mean of both values
+     * @return Get de value stored for the especific sensor
+     **/
+    const float get_instant_pair(uint8_t n_pair,
+                                 WP_Temp_sensor_t sensor,
+                                 bool send_req = true);
+
+    /**
+     * Get the number of sensors added to the system
+     * 
+     * @return The number of sensors added to the system
+     **/
+    const uint8_t get_n_pairs();
+
+    /**
+     * Indicates whether the module is started or not
+     * 
+     * @return Return true if the module is initialized, otherwise false
+     **/
     bool is_init();
 
+    /**
+     * Performs dump of all temperature values stored in the data array
+     * 
+     * @param str Pointer to String where the results are stored
+     * @param print_tag Indicates whether the label of each sensor should be displayed
+     * @param delim Character that indicates the separator of the fields shown
+     * @param reset Indicates whether the text string will be cleaned before entering data
+     **/
     void bulk_results(String* str, bool print_tag = true,
                       char delim = ',', bool reset = false);
-
+    
 private:
     OneWire* oneWireObj;                                          // One Wire control protocol
     DallasTemperature* sensors_ds18;                              // Control DS18 sensors

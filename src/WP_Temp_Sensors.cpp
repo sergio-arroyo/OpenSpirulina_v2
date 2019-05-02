@@ -42,26 +42,39 @@ uint8_t WP_Temp_Sensors::add_sensors_pair(const uint8_t* s_sensor, const uint8_t
 
 void WP_Temp_Sensors::store_all_results() {
     sensors_ds18->requestTemperatures();                   //Sends command for all devices on the bus to perform a temperature conversion
+
     for (uint8_t i=0; i<n_pairs; i++) {
         arr_s_results[i] = sensors_ds18->getTempC(sensors_pairs[i].s_sensor);
         arr_b_results[i] = sensors_ds18->getTempC(sensors_pairs[i].b_sensor);
     }
 }
 
-/* Return result from sensor pair. n_sensor=1: return surface value, n_sensor!=2: return background value */
-const float WP_Temp_Sensors::get_result_pair(uint8_t n_pair, uint8_t n_sensor) {
-    return (n_sensor==1)? arr_s_results[n_pair] : arr_b_results[n_pair];
+const float WP_Temp_Sensors::get_result_pair(uint8_t n_pair, WP_Temp_sensor_t sensor) {
+    if (n_pair >= n_pairs) return -127;                    // If pair is outbound, return a error value
+    
+    if (sensor == S_Surface)
+            return arr_s_results[n_pair];
+    
+    if (sensor == S_Background)
+        return arr_b_results[n_pair];
+    
+    if (sensor == S_Both)
+        return (arr_s_results[n_pair] + arr_b_results[n_pair]) / 2;
+    
+    return -127;                                           // Otherwise return a error value
 }
 
-const float WP_Temp_Sensors::get_result_pair_mean(uint8_t n_pair) {
-    return (arr_s_results[n_pair] + arr_b_results[n_pair]) / 2;
-}
-
-const float WP_Temp_Sensors::get_instant_pair_mean(uint8_t n_pair, bool send_req) {
-    if (n_pair >= n_pairs) return 0;                       //If the sensor pair ID is greater than the available one, 0 is returned
+const float WP_Temp_Sensors::get_instant_pair(uint8_t n_pair, WP_Temp_sensor_t sensor, bool send_req) {
+    if (n_pair >= n_pairs) return -127;                    //If the sensor pair ID is greater than the available one, 0 is returned
 
     if (send_req) sensors_ds18->requestTemperatures();     //Sends command for all devices on the bus to perform a temperature conversion
-
+    
+    if (sensor == S_Surface)
+        return sensors_ds18->getTempC(sensors_pairs[n_pair].s_sensor);
+    
+    if (sensor == S_Background)
+        return sensors_ds18->getTempC(sensors_pairs[n_pair].b_sensor);
+    
     return (sensors_ds18->getTempC(sensors_pairs[n_pair].s_sensor) +
             sensors_ds18->getTempC(sensors_pairs[n_pair].b_sensor)) / 2;
 }
