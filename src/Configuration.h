@@ -69,7 +69,7 @@
 #define SD_CARD_SS_PIN             PIN_SPI_SS              // Slave Select/Pin lector SD (PIN_SPI_SS = 53)
 #define SD_SAVE_DEF_ENABLED        1                       // Indicates whether save data sensors on SD is enabled or not by default
 #define SD_MAX_FILENAME_SIZE       14                      // Defines de max size of filename
-#define INI_FILE_NAME              "/config.ini"           // Filename of config ini file
+#define INI_CFG_FILENAME           "/config.ini"           // Filename of config ini file
 #define INI_FILE_BUFFER_LEN        80                      // Indicates the size of the buffer to get values from the start file
 
 
@@ -96,6 +96,11 @@ const uint8_t DHT_DEF_SENSORS[] =  {OPENSPIR_VGA_PIN4};    // Array for default 
 #define LUX_SENS_ADDR_PIN          OPENSPIR_VGA_PIN7       // Pin ADDR for apply HIGH level (5v) to assign 0x5C address
 #define LUX_SENS_N_SAMP_READ       10                      // Number of samples read from sensor
 
+#define LUX_SENS_DEF_NUM          2                        // Number of current sensors by default
+const uint8_t LUX_SENS_DEF_MODELS[]   = {1, 2};            // 1=BH1750 model, 2=MAX44009
+const uint8_t LUX_SENS_DEF_ADDRESS[]  = {0x5C, 0x4A};      // Array for default address for lux sensors
+const uint8_t LUX_SENS_DEF_ADDR_PIN[] = {34, 0};
+
 
 //===========================================================
 //======================== DO sensor ========================
@@ -106,7 +111,7 @@ const uint8_t DHT_DEF_SENSORS[] =  {OPENSPIR_VGA_PIN4};    // Array for default 
 #define DO_SENS_G_LED_PIN          OPENSPIR_VGA_PIN6       // Pin for DO Green LED
 #define DO_SENS_B_LED_PIN          OPENSPIR_VGA_PIN2       // Pin for DO Blue LED
 #define DO_SENS_N_SAMP_READ        10                      // Number of samples read from sensor
-#define DO_SENS_MS_READS           500                     // Time (in ms) between each reading
+#define DO_SENS_MS_READS           150                     // Time (in ms) between each reading
 
 
 //===========================================================
@@ -149,8 +154,7 @@ const uint8_t WP_T_DEF_SENST_PAIRS[][2][8] = {             // Define the pairs
 
 #define CURR_SENS_DEF_NUM          2                       // Number of current sensors by default
 const uint8_t CURR_SENS_DEF_PINS[] = {OPENSPIR_SHIELD_J4,  // Array for default pins for current sensors
-                                      OPENSPIR_SHIELD_J5
-                                     };
+                                      OPENSPIR_SHIELD_J5};
 const uint8_t CURR_SENS_DEF_MODELS[] = {0, 1};
 const uint16_t CURR_SENS_DEF_VAR[] = {20, 30};
 

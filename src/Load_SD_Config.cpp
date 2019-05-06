@@ -13,7 +13,7 @@
 
 /* Contructor class*/
 Load_SD_Config::Load_SD_Config(const char* filename) : IniFile(filename) {
-
+    
 }
 
 /* Open Ini config file and check if it's in correct format */

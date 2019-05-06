@@ -27,6 +27,13 @@ public:
         S_Both
     };
 
+    enum WP_Sensor_error_t : uint8_t {
+        No_Error = 0,
+        Surface_NotConn,
+        Background_NotConn,
+        Max_Reached
+    };
+
     /**
      * Constructor
      **/
@@ -48,8 +55,8 @@ public:
      *             2 if the background sensor not connected
      *             3 no more pairs of the allowed ones can be inserted 
      **/
-    uint8_t add_sensors_pair(const uint8_t* s_sensor, 
-                             const uint8_t* b_sensor);
+    WP_Sensor_error_t add_sensors_pair(const uint8_t* s_sensor, 
+                                        const uint8_t* b_sensor);
 
     /** 
      * Read all temperature sensors and store the values to internal array

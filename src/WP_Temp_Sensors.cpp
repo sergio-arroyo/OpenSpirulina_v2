@@ -26,18 +26,18 @@ void WP_Temp_Sensors::begin() {
     initialized = true;
 }
 
-uint8_t WP_Temp_Sensors::add_sensors_pair(const uint8_t* s_sensor, const uint8_t* b_sensor) {
-    if (!sensors_ds18->isConnected(s_sensor)) return 1;        // If surface sensor not connected, return error
-    if (!sensors_ds18->isConnected(b_sensor)) return 2;        // If background sensor not connected, return error
-    if (n_pairs >= WP_T_MAX_PAIRS_SENS) return 3;              // Controls that no more pairs of the allowed ones are inserted
+WP_Temp_Sensors::WP_Sensor_error_t WP_Temp_Sensors::add_sensors_pair(const uint8_t* s_sensor, const uint8_t* b_sensor) {
+    if (!sensors_ds18->isConnected(s_sensor)) return Surface_NotConn;     // If surface sensor not connected, return error
+    if (!sensors_ds18->isConnected(b_sensor)) return Background_NotConn;  // If background sensor not connected, return error
+    if (n_pairs >= WP_T_MAX_PAIRS_SENS) return Max_Reached;               // Controls that no more pairs of the allowed ones are inserted
 
-    for (uint8_t i=0; i<8; i++) {                              // Copy incomming data
+    for (uint8_t i=0; i<8; i++) {                                         // Copy incomming data
         sensors_pairs[n_pairs].s_sensor[i] = s_sensor[i];
         sensors_pairs[n_pairs].b_sensor[i] = b_sensor[i];
     }
     n_pairs++;
     
-    return 0;
+    return No_Error;
 }
 
 void WP_Temp_Sensors::store_all_results() {
@@ -53,7 +53,7 @@ const float WP_Temp_Sensors::get_result_pair(uint8_t n_pair, WP_Temp_sensor_t se
     if (n_pair >= n_pairs) return -127;                    // If pair is outbound, return a error value
     
     if (sensor == S_Surface)
-            return arr_s_results[n_pair];
+        return arr_s_results[n_pair];
     
     if (sensor == S_Background)
         return arr_b_results[n_pair];

@@ -8,19 +8,10 @@
  *
  * Based on:
  * 
- * Ethernet web client sketch:
- *   Repeating Web client
- *   http://www.arduino.cc/en/Tutorial/WebClientRepeating
+ * Ethernet2 web client sketch:
+ *   WIZ5500 based Ethernet Shield library
+ *   https://github.com/adafruit/Ethernet2
  *
- * DS18B20 sensor de temperatura para líquidos con Arduino:
- *   https://programarfacil.com/blog/arduino-blog/ds18b20-sensor-temperatura-arduino/
- *
- * pH
- *   phMeterSample.ino from: YouYou
- *
- * BH1750: lux sensor to mesure spirulina's biomass concentration.
- *   https://github.com/claws/BH1750
- * 
  * LCD LiquidCrystal_I2C LiquidCrystal Arduino library for the DFRobot I2C LCD displays:
  *   https://github.com/marcoschwartz/LiquidCrystal_I2C
  * 
@@ -44,7 +35,7 @@
 #include "LCD_Screen.h"                                    // Class for LCD control
 #include "DHT_Sensors.h"                                   // Class for control all DHT sensors
 #include "DO_Sensor.h"                                     // Class for Optical Density control
-#include "Lux_Sensor.h"                                    // Class for lux sensor control
+#include "Lux_Sensors.h"                                   // Class for lux sensor control
 #include "PH_Sensors.h"                                    // Class for pH sensors control
 #include "WP_Temp_Sensors.h"                               // Class for DS18 Waterproof Temperature Sensors control
 #include "Current_Sensors.h"                               // Class for current sensors control
@@ -64,9 +55,9 @@ LCD_Screen lcd(LCD_I2C_ADDR, LCD_COLS, LCD_ROWS,
                 LCD_CONTRAST, LCD_BACKLIGHT_ENABLED);      // LCD screen
 
 DHT_Sensors dht_sensors;                                   // Handle all DHT sensors
-Lux_Sensor lux_sensor;                                     // Lux sensor with BH1750
 DO_Sensor  do_sensor;                                      // Sensor 1 [DO] ("Optical Density")
 
+Lux_Sensors *lux_sensors;                                  // Lux sensor with BH1750
 PH_Sensors *pH_sensors;                                    // pH sensors class
 WP_Temp_Sensors *wp_t_sensors;                             // DS18B20 Sensors class
 Current_Sensors *curr_sensors;                             // Current sensors
@@ -114,9 +105,6 @@ const unsigned long time_current = 30L * 1000L; //Time un seconds between curren
 // Array of CO2 sensors
 float array_co2[num_CO2];
 
-// Lux ambient value
-float lux;
-
 
 //TODO: Cambiar tipo de dato de last_send de String a char[9]
 //char last_send[9];
@@ -151,69 +139,35 @@ EthernetClient eth_client;
  |_|     \____/|_| \_|\_____|  |_|  |_____\____/|_| \_|_____/  
  */
 
-// Deteccio si hi ha moviment via PIR
-bool detect_PIR(int pin) {
-    //for(int i=0; i<num_PIR; i++){
-    // Si hi ha moviment al pin PIR retorna true
-    return (digitalRead(pin) == HIGH);
-}
-
 /* Capture light ambient with LDR sensor*/
 float capture_LDR(uint8_t s_pin) {
     return analogRead(s_pin);
 }
 
-void sort_array(float* arr, const uint8_t n_samples) {
-    float tmp_val;
-
-    for (int i=0; i < (n_samples-1); i++) {
-        for (int j=0; j < (n_samples-(i+1)); j++) {
-            if (arr[j] > arr[j+1]) {
-                tmp_val = arr[j];
-                arr[j] = arr[j+1];
-                arr[j+1] = tmp_val;
-            }
-        }
-    }
-}
-
-float sort_and_filter_CO2(float* llistat) {
-	// Define array without first and last n elements
-	float llistat_output;
-	// Sort normally
-	sort_array(llistat, CO2_SENS_N_SAMP_READ);
-
-	// Descartem els 2 primers i 2 ultims valors
-	for (uint8_t i=2; i<(CO2_SENS_N_SAMP_READ-2); i++) {
-		llistat_output += llistat[i];
-	}
-	return llistat_output / (CO2_SENS_N_SAMP_READ - 4);
-}
-
-/* Capture CO2 */
-void capture_CO2() {
+/* Capture CO2 sensor */
+float capture_CO2(uint8_t pin) {
     if (DEBUG) SERIAL_MON.println(F("Capturing CO2"));
 
-    // Take CO2_SENS_N_SAMP_READ samples of Every co2 sensor
-    float mostres_co2[CO2_SENS_N_SAMP_READ];
+    int32_t total_v=0;
+    int16_t read_v, min_v=0, max_v=0;
 
-    for (uint8_t j=0; j<CO2_SENS_N_SAMP_READ; j++) {
-        // Read voltage
-        float adc = analogRead(pins_co2[0]);               // Paso 1, conversión ADC de la lectura del pin analógico
-        float voltaje = adc * 5.0 / 1023.0;                // Paso 2, obtener el voltaje
-        float co2conc = voltaje * (-3157.89) + 1420.0;
+    for (uint8_t i=CO2_SENS_N_SAMP_READ; i>0; i--) {
+        read_v = analogRead(pin);                          // Read ADC value
+        read_v *= 5;                                       // Convert adc scale to voltage
+        read_v >>= 10;                                     // Shift 10 bits (divide by 1024)
+        read_v += 1420;                                    // Apply sensor offset
 
-        SERIAL_MON.print(co2conc);
-        SERIAL_MON.print(F(" ppm CO2 ["));
-        SERIAL_MON.print(j);
-        SERIAL_MON.println(F("]"));
+        if (read_v < min_v) min_v = read_v;
+        if (read_v > max_v) max_v = read_v;
+        total_v += read_v;
 
-        // Save voltatge value
-        mostres_co2[j] = co2conc;
         delay(100);
     }
-    
-    array_co2[0] = sort_and_filter_CO2(mostres_co2);
+
+    total_v -= min_v;                                      // Discards lower and higher value for the average
+    total_v -= max_v;
+
+    return total_v / (CO2_SENS_N_SAMP_READ-2);
 }
 
 /* Show obteined vales from LCD */
@@ -251,7 +205,7 @@ void pH_calibration() {
     lcd.clear();                                           // Clear screen
     lcd.home ();                                           // Linea 1
     lcd.print(F("pH Calibration"));
-
+    
     if (pH_sensors && pH_sensors->get_n_sensors() > 0) {
         lcd.setCursor(0, 1);                               // go to the 2nd line
         lcd.print(F("pH1:"));
@@ -277,6 +231,7 @@ void SD_get_next_FileName(char* _fileName) {
 }
 
 /* Writing title headers to file */
+//TODO: Implementar volgado de las cabeceras (el mismo volcado de datos con tags pero sin valores)
 void SD_write_header(const char* _fileName) {
     myFile = SD.open(_fileName, FILE_WRITE);
 
@@ -308,7 +263,7 @@ void SD_write_header(const char* _fileName) {
     }
 
     // Lux sensor
-    if (lux_sensor.is_init()) myFile.print(F("lux#"));
+    if (lux_sensors) myFile.print(F("lux#"));
     
     // pH Sensor
     uint8_t num_max = pH_sensors? pH_sensors->get_n_sensors() : 0;
@@ -349,6 +304,7 @@ void SD_write_header(const char* _fileName) {
 }
 
 /* Writing results to file in SD card */
+//TODO: Implementar volcado para todas las clases!!
 void SD_save_data(const char* _fileName) {
     String tmp_data = "";                                  // Temporal string to concatenate the information
 
@@ -387,9 +343,8 @@ void SD_save_data(const char* _fileName) {
     }
 
     // Lux sensor
-    if (lux_sensor.is_init()) {
-        tmp_data += lux;
-        tmp_data += F("#");
+    if (lux_sensors) {
+        lux_sensors->bulk_results(tmp_data, false, false, '#');
     }
     
     // pH Sensor
@@ -526,91 +481,88 @@ bool send_data_modem(String cadena, bool step_retry) {
             return false;
         }
     
-    IPAddress local = modem.localIP();
-    if (DEBUG) {
-        SERIAL_MON.println(F("GPRS [OK]"));
-        SERIAL_MON.print(F("Local IP: "));
-        SERIAL_MON.println(local);
+        IPAddress local = modem.localIP();
+        if (DEBUG) {
+            SERIAL_MON.println(F("GPRS [OK]"));
+            SERIAL_MON.print(F("Local IP: "));
+            SERIAL_MON.println(local);
 
-        SERIAL_MON.print(F("Connecting to "));
-        SERIAL_MON.println(HTTP_REP1_SERVER);
-    }
+            SERIAL_MON.print(F("Connecting to "));
+            SERIAL_MON.println(HTTP_REP1_SERVER);
+        }
+        
+        if (!client.connect(HTTP_REP1_SERVER, HTTP_REP1_PORT)) {
+            SERIAL_MON.println(F("Server [fail]"));
+            delay(1000);
 
-    if (!client.connect(HTTP_REP1_SERVER, HTTP_REP1_PORT)) {
-        SERIAL_MON.println(F("Server [fail]"));
-        delay(1000);
+            if (step_retry == false) {
+                SERIAL_MON.println(F("[Modem] Retrying connection !"));
+                send_data_modem(cadena, true);  // Reconnect modem and init again
+            }      
+            return false;
+        }
 
-        if (step_retry == false) {
-            SERIAL_MON.println(F("[Modem] Retrying connection !"));
-            send_data_modem(cadena, true);  // Reconnect modem and init again
-        }      
-        return false;
-    }
-    SERIAL_MON.println(F("Server [OK]"));
-  
-      // Make a HTTP GET request:
-    client.print(cadena + " HTTP/1.0\r\n");
-    client.print(String("Host: ") + HTTP_REP1_SERVER + "\r\n");
-    client.print(F("Connection: close\r\n\r\n"));
-    /*
-      // Wait for data to arrive
-      while (client.connected() && !client.available()) {
-        delay(100);
-        SERIAL_MON.print('.');
-      };
-      SERIAL_MON.println(F("Received data: "));
-      // Skip all headers
-      //client.find("\r\n\r\n");
-      // Read data
-      unsigned long timeout = millis();
-      unsigned long bytesReceived = 0;
-      while (client.connected() && millis() - timeout < 5000L) {//client.connected() &&
-        //while (client.available()) {
-        char c = client.read();
-        SERIAL_MON.print(c);
-        bytesReceived += 1;
-        timeout = millis();
-        //}
-      }
-      */
-      SERIAL_MON.println();
-      client.stop();
-      if(DEBUG) SERIAL_MON.println(F("Server disconnected"));
+        if (DEBUG) SERIAL_MON.println(F("Server [OK]"));
+
+        // Make a HTTP GET request:
+        client.print(cadena + " HTTP/1.0\r\n");
+        client.print(String("Host: ") + HTTP_REP1_SERVER + "\r\n");
+        client.print(F("Connection: close\r\n\r\n"));
+
+        /*
+        // Wait for data to arrive
+        while (client.connected() && !client.available()) {
+            delay(100);
+            SERIAL_MON.print('.');
+        };
+        
+        SERIAL_MON.println(F("Received data: "));
+        // Skip all headers
+        //client.find("\r\n\r\n");
+        // Read data
+        unsigned long timeout = millis();
+        unsigned long bytesReceived = 0;
+        while (client.connected() && millis() - timeout < 5000L) {//client.connected() &&
+            //while (client.available()) {
+            char c = client.read();
+            SERIAL_MON.print(c);
+            bytesReceived += 1;
+            timeout = millis();
+            //}
+        }
+        */
     
-      modem.gprsDisconnect();
-      if(DEBUG) SERIAL_MON.println(F("GPRS disconnected"));
-      /*
-      if (DEBUG) {
-        SERIAL_MON.println(F("************************"));
-        SERIAL_MON.print  (F("Received: "));
-        SERIAL_MON.print(bytesReceived);
-        SERIAL_MON.println(F(" bytes"));
-      }
-      */
-      return true;
-  }
-  else {
-    SERIAL_MON.println(F("[Modem] Fail !"));
-    // Try one more time, if continue fails, continue
-    if(step_retry == false) {
-      SERIAL_MON.println(F("[Modem] Retrying connection !"));
-      send_data_modem(cadena, true);  
-    }
-    return false; 
-  }
+        client.stop();
+
+        if (DEBUG) SERIAL_MON.println(F("\nServer disconnected"));
+        
+        modem.gprsDisconnect();
+        if (DEBUG) SERIAL_MON.println(F("GPRS disconnected"));
+        
+        return true;
+        }
+        else {
+            SERIAL_MON.println(F("[Modem] Fail !"));
+            // Try one more time, if continue fails, continue
+            if (step_retry == false) {
+                SERIAL_MON.println(F("[Modem] Retrying connection !"));
+                send_data_modem(cadena, true);  
+            }
+        return false;
+        }
     
     return false;
 }
 
 bool send_data_server() {
-	String cadena = "GET /afegir.php?";
+	String cadena = F("GET /afegir.php?");
 	
 	// Append our ID Arduino
-	cadena += "idarduino=";
+	cadena += F("idarduino=");
 	cadena += HTTP_REP1_ID_ARDUINO;
 
 	// Append PIN for that ID
-	cadena += "&pin=";
+	cadena += F("&pin=");
 	cadena += HTTP_REP1_PIN_ARDUINO;
 
 	// Append temperatures
@@ -630,32 +582,20 @@ bool send_data_server() {
 	// Append Ambient temperatures and Humidity
 	//TODO: Cambiar el volcado de datos por el de la funcion definida ya en la clase DHT_Sensor
 	for (uint8_t i=0; i<dht_sensors.get_n_sensors(); i++) {
-		cadena += "&ta";
+		cadena += F("&ta");
 		cadena += i+1;
 		cadena += "=";
 		cadena += dht_sensors.get_Temperature(i);
-		cadena += "&ha";
+		cadena += F("&ha");
 		cadena += i+1;
 		cadena += "=";
 		cadena += dht_sensors.get_Humidity(i);
 	}
   
 	// Append Lux sensors
-	if (lux_sensor.is_init()) {
-		cadena += "&lux1=";
-		cadena += lux;
+	if (lux_sensors) {
+        lux_sensors->bulk_results(cadena, false, true, '&');
 	}
-
-	//TODO: Implementar sensor LDR
-	/*
-	if (ldr_sensor.is_ini()) {
-		switch (option_lux) {
-			case lux_LDR: cadena += "&ldr1="; break;
-			case lux_BH1750: cadena += "&lux1=";
-		}
-		cadena += lux;
-	}
-	*/
 
 	// Append pH Sensor
     uint8_t num_max = pH_sensors? pH_sensors->get_n_sensors() : 0;
@@ -749,38 +689,73 @@ void SD_load_DHT_sensors(Load_SD_Config* ini) {
 	}
 }
 
-void SD_load_Lux_sensor(IniFile* ini) {
+bool extract_str_params_Lux_sensor(char *str, Lux_Sensors::Lux_Sensor_model_t &model, uint8_t &addr, uint8_t &addr_pin) {
+    char *pch;
+
+    pch = strtok(str, ",");                                // Get the first piece, sensor model
+    if (pch == NULL) return false;                         // Check piece, if it's not correct, exit
+
+    while (isspace(*pch)) ++pch;                           // Skip possible white spaces
+    char *tmp = pch;                                       // Remove trailing white space
+    while (*tmp != ',' && *tmp != '\0')
+        if (*tmp == ' '|| *tmp == '\t') *tmp++ = '\0'; else tmp++;
+
+    if (strcmp(pch, "BH1750") == 0)                        // Select sensor model
+        model = Lux_Sensors::Lux_Sensor_model_t::mod_BH1750;
+    else if (strcmp(pch, "MAX44009") == 0)
+        model = Lux_Sensors::Lux_Sensor_model_t::mod_MAX44009;
+    else
+        return false;
+    
+    pch = strtok(NULL, ",");                               // Get the second piece, address
+    addr = (uint8_t)strtol(pch, NULL, 16);                 // Obtain the pin value
+
+    pch = strtok(NULL, ",");                               // Get the third piece, pin ADDR
+    addr_pin = (uint16_t)strtol(pch, NULL, 10);            // Obtain the pin value
+
+    return true;
+}
+
+void SD_load_Lux_sensors(IniFile* ini) {
 	char buffer[INI_FILE_BUFFER_LEN] = "";
-	bool found;
-	
-	if (DEBUG) SERIAL_MON.println(F("Loading Lux sensor config.."));
-	
-	// Read Lux sensor address
-	found = ini->getValue("sensor:lux", "address", buffer, sizeof(buffer));
-	if (found) {
-		// Convert char[] address to byte value
-        uint8_t address = (uint8_t)strtol(buffer, NULL, 16);
-		if (DEBUG) { SERIAL_MON.print(F("  > Found config address: 0x")); SERIAL_MON.println(address, HEX); }
-		
-		// Read Lux Addr pin
-		ini->getValue("sensor:lux", "addr_pin", buffer, sizeof(buffer));
-		uint8_t addr_pin = atoi(buffer);                   // If addr_pin not found, the value is 0
-		if (DEBUG) { SERIAL_MON.print(F("  > Addr pin: ")); SERIAL_MON.println(addr_pin); }
+	char tag_sensor[11] = "";
+    bool sens_cfg;
+    uint8_t i = 1;
+    uint8_t s_addr, s_addr_pin;
+    Lux_Sensors::Lux_Sensor_model_t s_model;
 
-		lux_sensor.begin(address, addr_pin);               // Configure lux sensor with Ini loaded config.
+    if (DEBUG) SERIAL_MON.println(F("Loading Lux sensors config.."));
+    do {
+		sprintf(tag_sensor, "sensor%d", i++);
+		sens_cfg = ini->getValue("sensors:lux", tag_sensor, buffer, sizeof(buffer));
 
-        // Read number of samples to read from sensor
-        ini->getValue("sensor:lux", "n_samples", buffer, sizeof(buffer));
-        uint8_t n_samples = atoi(buffer);
-        if (n_samples != 0) lux_sensor.set_n_samples(n_samples);
-	}
-    else {
-		// Configure lux sensor with default configuration
-        if (DEBUG) SERIAL_MON.print(F("No config found. Loading default.."));
+		if (sens_cfg && extract_str_params_Lux_sensor(buffer, s_model, s_addr, s_addr_pin)) {
+			if (DEBUG) {
+                SERIAL_MON.print(F("  > Found config: ")); Serial.print(tag_sensor);
+			    SERIAL_MON.print(F(". Addr = 0x")); Serial.println(s_addr, 16);
+            }
 
-		if (LUX_SENS_ACTIVE)
-            lux_sensor.begin(LUX_SENS_ADDR, LUX_SENS_ADDR_PIN);
-	}
+            if (!lux_sensors) lux_sensors = new Lux_Sensors();       //If the object has not been initialized yet, we do it now
+            lux_sensors->add_sensor(s_model, s_addr, s_addr_pin);
+        }
+    } while (sens_cfg);
+
+    // Load default configuration
+    if (!lux_sensors && LUX_SENS_DEF_NUM > 0) {
+        if (DEBUG) SERIAL_MON.println(F("No lux config found. Loading default.."));
+        lux_sensors = new Lux_Sensors();
+
+        for (uint8_t i=0; i<LUX_SENS_DEF_NUM; i++) {
+            lux_sensors->add_sensor((Lux_Sensors::Lux_Sensor_model_t) LUX_SENS_DEF_MODELS[i],
+                                    LUX_SENS_DEF_ADDRESS[i],
+                                    LUX_SENS_DEF_ADDR_PIN[i]);
+            if (DEBUG) {
+                SERIAL_MON.print(F("  > Found default config: "));
+			    SERIAL_MON.print(F("model: ")); Serial.println(LUX_SENS_DEF_MODELS[i]);
+                SERIAL_MON.print(F(", addr: 0x")); Serial.println(LUX_SENS_DEF_ADDRESS[i], 16);
+            }
+        }
+    }
 }
 
 void SD_load_DO_sensor(IniFile* ini) {
@@ -875,8 +850,8 @@ void SD_load_WP_Temp_sensors(IniFile* ini) {
 
     if (DEBUG) SERIAL_MON.println(F("Loading WP temperature sensors config.."));
     
-    bool found = ini->getValue("sensors:wp_temp", "one_wire_pin", buffer, sizeof(buffer),
-                               one_wire_pin);                         // Load One Wire config
+    bool found = ini->getValue("sensors:wp_temp", "one_wire_pin",
+                                buffer, sizeof(buffer), one_wire_pin); // Load One Wire config
 
 	while (found) {
         // Load surface sensor address
@@ -902,12 +877,12 @@ void SD_load_WP_Temp_sensors(IniFile* ini) {
 
     // Load default configuration
     if (!wp_t_sensors && WP_T_DEF_NUM_PAIRS > 0) {
-        if (DEBUG) SERIAL_MON.println(F("No pH config found. Loading default.."));
+        if (DEBUG) SERIAL_MON.println(F("No WP config found. Loading default.."));
         
         wp_t_sensors = new WP_Temp_Sensors(WP_T_ONE_WIRE_PIN);
         for (i=0; i<WP_T_DEF_NUM_PAIRS; i++) {
             if (DEBUG) {
-                SERIAL_MON.print(F("  > Found config: sensor")); SERIAL_MON.print(i);
+                SERIAL_MON.print(F("  > Found config: sensor")); SERIAL_MON.print(i+1);
                 SERIAL_MON.println(F(" pair"));
             }
             wp_t_sensors->add_sensors_pair(WP_T_DEF_SENST_PAIRS[i][0], WP_T_DEF_SENST_PAIRS[i][1]);   
@@ -918,25 +893,25 @@ void SD_load_WP_Temp_sensors(IniFile* ini) {
 bool extract_str_params_Current_sensor(char *str, uint8_t &pin, Current_Sensors::Current_Model_t &model, uint16_t &var) {
     char *pch;
 
-    pch = strtok(str, ",");                                // Get the first piace
+    pch = strtok(str, ",");                                // Get the first piece
     if (pch == NULL) return false;                         // Check piece, if it's not correct, exit
     pin = (uint8_t)strtol(pch, NULL, 10);                  // Obtain the pin value
     
-    pch = strtok(NULL, ",");                               // Get the second piace
+    pch = strtok(NULL, ",");                               // Get the second piece
 
     while (isspace(*pch)) ++pch;                           // Skip possible white spaces
     char *tmp = pch;                                       // Remove trailing white space
     while (*tmp != ',' && *tmp != '\0')
         if (*tmp == ' '|| *tmp == '\t') *tmp++ = '\0'; else tmp++;
 
-    if (strcmp(pch, "acs712") == 0)                        // Select sensor model
+    if (strcmp(pch, "ACS712") == 0)                        // Select sensor model
         model = Current_Sensors::Current_Model_t::ACS712;
-    else if (strcmp(pch, "sct013") == 0)
+    else if (strcmp(pch, "SCT013") == 0)
         model = Current_Sensors::Current_Model_t::SCT013;
     else
         return false;
     
-    pch = strtok(NULL, ",");                               // Get the third piace
+    pch = strtok(NULL, ",");                               // Get the third piece
     if (pch == NULL) return false;
     var = (uint16_t)strtol(pch, NULL, 10);                 // Obtain the pin value
 
@@ -945,7 +920,7 @@ bool extract_str_params_Current_sensor(char *str, uint8_t &pin, Current_Sensors:
 
 void SD_load_Current_sensors(IniFile* ini) {
 	char buffer[INI_FILE_BUFFER_LEN] = "";
-	char tag_sensor[16] = "";
+	char tag_sensor[11] = "";
     bool sens_cfg;
     uint8_t i = 1;
     uint8_t pin;
@@ -954,9 +929,8 @@ void SD_load_Current_sensors(IniFile* ini) {
 
     if (DEBUG) SERIAL_MON.println(F("Loading Current sensors config.."));
     do {
-        // Try to read pin
 		sprintf(tag_sensor, "sensor%d", i++);
-		sens_cfg = ini->getValue("sensors:current", tag_sensor, buffer, sizeof(buffer), pin);
+		sens_cfg = ini->getValue("sensors:current", tag_sensor, buffer, sizeof(buffer));
 
 		if (sens_cfg && extract_str_params_Current_sensor(buffer, pin, s_model, var)) {
 			if (DEBUG) {
@@ -1009,7 +983,7 @@ void setup() {
 		if (DEBUG) SERIAL_MON.println(F("Initialization SD done."));
 
         // Read initial config from file
-        Load_SD_Config ini(INI_FILE_NAME);                                // IniFile configuration
+        Load_SD_Config ini(INI_CFG_FILENAME);                             // IniFile configuration
 
         // Try to open and check config file
         if (ini.open_config()) {
@@ -1019,7 +993,7 @@ void setup() {
             ini.load_bool("SD_card", "save_on_sd", SD_save_enabled);      // Load if SD save is enabled
 
 			SD_load_DHT_sensors(&ini);                                    // Initialize DHT sensors configuration
-			SD_load_Lux_sensor(&ini);                                     // Initialize Lux light sensor
+			SD_load_Lux_sensors(&ini);                                    // Initialize Lux light sensor
             SD_load_DO_sensor(&ini);                                      // Initialize DO sensor
             SD_load_pH_sensors(&ini);                                     // Initialize pH sensors
             SD_load_WP_Temp_sensors(&ini);                                // Initialize DS18B20 waterproof temperature sensors
@@ -1134,12 +1108,12 @@ void loop() {
     // Capture PH for each pH Sensor
 	if (dht_sensors.get_n_sensors() > 0) {
 		if (DEBUG) SERIAL_MON.println(F("Capture DHT sensor(s).."));
-		dht_sensors.capture_all_DHT();
+		dht_sensors.capture_all_sensors();
 	}
 
-    if (lux_sensor.is_init()) {
+    if (lux_sensors) {
 		if (DEBUG) SERIAL_MON.println(F("Capture lux sensor.."));
-		lux = lux_sensor.capture_lux();
+		lux_sensors->capture_all_sensors();
 	}
 
     //Capture DO values (Red, Green, Blue, and White)
@@ -1152,7 +1126,7 @@ void loop() {
     // Capture CO2 concentration
     if (num_CO2 > 0) {
 		if (DEBUG) SERIAL_MON.println(F("Capture CO2 sensor.."));
-		capture_CO2();
+		capture_CO2(pins_co2[0]);
 	}
     
     // END of capturing values

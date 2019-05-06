@@ -30,7 +30,7 @@ bool DHT_Sensors::add_sensor(uint8_t pin, DHT_Dev_Model_t model) {
 }
 
 /* Capture temperatures & humidities from all DHT sensors */
-void DHT_Sensors::capture_all_DHT() {
+void DHT_Sensors::capture_all_sensors() {
 	for (uint8_t i=0; i<n_sensors; i++) {
         arr_Temp[i] = arr_sensors[i]->getTemperature();    // Read Temperature
 		arr_Humd[i] = arr_sensors[i]->getHumidity();       // Read Humidity

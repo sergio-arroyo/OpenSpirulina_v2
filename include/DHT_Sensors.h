@@ -43,7 +43,7 @@ public:
      * Read all current sensors and store the values to internal array
      * 
      **/
-    void capture_all_DHT();
+    void capture_all_sensors();
 
     /**
      * Get the value of the temperature sensor stored in the array
