@@ -6,8 +6,8 @@
  * Waterproof Temperature Sensors class used to control all DS18B20 sensors attached to the system
  * 
  */
-#ifndef WP_TEMP_SENSORS_h
-#define WP_TEMP_SENSORS_h
+#ifndef WP_Temp_Sensors_h
+#define WP_Temp_Sensors_h
 
 #include <Arduino.h>
 #include <DallasTemperature.h>
@@ -107,15 +107,16 @@ public:
     bool is_init();
 
     /**
-     * Performs dump of all temperature values stored in the data array
+     * Performs dump of all result values stored in the data array
      * 
      * @param str Pointer to String where the results are stored
-     * @param print_tag Indicates whether the label of each sensor should be displayed
-     * @param delim Character that indicates the separator of the fields shown
      * @param reset Indicates whether the text string will be cleaned before entering data
+     * @param print_tag Indicates whether the label of each sensor should be displayed
+     * @param print_value Indicates whether the value of each sensor should be displayed
+     * @param delim Character that indicates the separator of the fields shown
      **/
-    void bulk_results(String* str, bool print_tag = true,
-                      char delim = ',', bool reset = false);
+    void bulk_results(String &str, bool reset = true, bool print_tag = true,
+                        bool print_value = true, char delim = ',');
     
 private:
     OneWire* oneWireObj;                                          // One Wire control protocol

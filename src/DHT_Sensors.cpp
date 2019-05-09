@@ -51,31 +51,34 @@ const float DHT_Sensors::get_Humidity(uint8_t n_sensor) {
     return 0;
 }
 
-void DHT_Sensors::bulk_Temperatures(String *str, char delim, bool reset) {
-    if (reset) str->remove(0);                             // Indicates whether the string should be deleted before entering the new values
-    
-    for (uint8_t i=0; i<n_sensors; i++) {
-        if (delim != '\0') str->concat(delim);
-        str->concat("ta");
-        str += i + 1;
-        str->concat("=");
-        str->concat(arr_Temp[i]);
-    }
-}
-
-void DHT_Sensors::bulk_Humidities(String *str, char delim, bool reset) {
-    if (reset) str->remove(0);                             // Indicates whether the string should be deleted before entering the new values
-    
-    for (uint8_t i=0; i<n_sensors; i++) {
-        if (delim != '\0') str->concat(delim);
-        str->concat("ha");
-        str += i + 1;
-        str->concat("=");
-        str->concat(arr_Humd[i]);
-    }
-}
-
 const uint8_t DHT_Sensors::get_n_sensors() {
     return n_sensors;
 }
 
+void DHT_Sensors::bulk_results(String &str, bool reset, bool print_tag, bool print_value, char delim) {
+    if (reset) str.remove(0);                              // Delete string before entering the new values
+    if (str != "") str.concat(delim);                      // If string is not empty, add delimiter
+
+    for (uint8_t i=0; i<n_sensors; i++) {
+        if (i && delim != '\0') str.concat(delim);
+
+        if (print_tag) {                                   // Ambient temperature
+            str.concat(F("Amb"));
+            str += i+1;
+            str.concat(F("_t"));
+
+            if (print_value) str.concat(F("="));
+        }
+        if (print_value) str.concat(arr_Temp[i]);
+
+        str.concat(delim);
+        if (print_tag) {                                   // Ambient humidity
+            str.concat(F("Amb"));
+            str += i+1;
+            str.concat(F("_h"));
+
+            if (print_value) str.concat(F("="));
+        }
+        if (print_value) str.concat(arr_Humd[i]);
+    }
+}

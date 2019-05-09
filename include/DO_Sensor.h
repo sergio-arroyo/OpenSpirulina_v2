@@ -150,6 +150,18 @@ public:
      **/
     bool is_init();
 
+    /**
+     * Performs dump of all result values stored in the data array
+     * 
+     * @param str Pointer to String where the results are stored
+     * @param reset Indicates whether the text string will be cleaned before entering data
+     * @param print_tag Indicates whether the label of each sensor should be displayed
+     * @param print_value Indicates whether the value of each sensor should be displayed
+     * @param delim Character that indicates the separator of the fields shown
+     **/
+    void bulk_results(String &str, bool reset = true, bool print_tag = true,
+                        bool print_value = true, char delim = ',');
+
 private:
     bool initialized;
     BH1750* bh1750_dev;                                    // Pointer to BH1750 instance
@@ -166,8 +178,8 @@ private:
 		float G_value;
 		float B_value;
 		float W_value;
-    } lux_results;                        
-
+    } lux_results;
+    
     const float capture_and_filter();                      // Capture a number of lux read values and calculate the mean value
 };
 

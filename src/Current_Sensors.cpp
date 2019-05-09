@@ -125,3 +125,19 @@ uint16_t Current_Sensors::read_V_ref() {
     return (3300);                                         // Guess that other un-supported architectures will be running a 3.3V!
 #endif
 }
+
+void Current_Sensors::bulk_results(String &str, bool reset, bool print_tag, bool print_value, char delim) {
+    if (reset) str.remove(0);                              // Delete string before entering the new values
+    if (str != "") str.concat(delim);                      // If string is not empty, add delimiter
+    
+    for (uint8_t i=0; i<n_sensors; i++) {
+        if (i && delim != '\0') str.concat(delim);
+        if (print_tag) {
+            str.concat(F("I"));
+            str += i+1;
+            
+            if (print_value) str.concat(F("="));
+        }
+        if (print_value) str.concat(arr_current[i]);
+    }
+}

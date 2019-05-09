@@ -87,22 +87,29 @@ bool WP_Temp_Sensors::is_init() {
     return initialized;
 }
 
-void WP_Temp_Sensors::bulk_results(String* str, bool print_tag, char delim, bool reset) {
-    if (reset) str->remove(0);                             // Indicates whether the string should be deleted before entering the new values
+void WP_Temp_Sensors::bulk_results(String &str, bool reset, bool print_tag, bool print_value, char delim) {
+    if (reset) str.remove(0);                              // Delete string before entering the new values
+    if (str != "") str.concat(delim);                      // If string is not empty, add delimiter
     
     for (uint8_t i=0; i<n_pairs; i++) {
-        if (delim != '\0') str->concat(delim);
+        if (i && delim != '\0') str.concat(delim);         // Surface temperature
         if (print_tag) {
-            str->concat("T");
-            str += i + 1;
-            str->concat("_s=");
+            str.concat(F("T"));
+            str += i+1;
+            str.concat(F("_s"));
+
+            if (print_value) str.concat(F("="));
         }
-        str->concat(arr_s_results[i]);
+        if (print_value) str.concat(arr_s_results[i]);
+        
+        str.concat(delim);                                 // Bacground temperature
         if (print_tag) {
-            str->concat("T");
-            str += i + 1;
-            str->concat("_b=");
+            str.concat(F("T"));
+            str += i+1;
+            str.concat(F("_b"));
+
+            if (print_value) str.concat(F("="));
         }
-        str->concat(arr_b_results[i]);
+        if (print_value) str.concat(arr_b_results[i]);
     }
 }

@@ -6,8 +6,8 @@
  * DHT_Sensor class used to control all DHT sensors attached to the system
  * 
  */
-#ifndef DHT_SENSOR_h
-#define DHT_SENSOR_h
+#ifndef DHT_Sensors_h
+#define DHT_Sensors_h
 
 #include <Arduino.h>
 #include <DHT.h>
@@ -62,29 +62,23 @@ public:
     const float get_Humidity(uint8_t n_sensor);
 
     /**
-     * Performs dump of all temperature values stored in the data array
-     * 
-     * @param str Pointer to String where the results are stored
-     * @param delim Character that indicates the separator of the fields shown
-     * @param reset Indicates whether the text string will be cleaned before entering data
-     **/
-    void bulk_Temperatures(String *str, char delim=',', bool reset=false);
-
-    /**
-     * Performs dump of all humidities values stored in the data array
-     * 
-     * @param str Pointer to String where the results are stored
-     * @param delim Character that indicates the separator of the fields shown
-     * @param reset Indicates whether the text string will be cleaned before entering data
-     **/
-    void bulk_Humidities(String *str, char delim=',', bool reset=false);
-
-    /**
      * Get the number of sensors added to the system
      * 
      * @return The number of sensors added to the system
      **/
     const uint8_t get_n_sensors();
+
+    /**
+     * Performs dump of all result values stored in the data array
+     * 
+     * @param str Pointer to String where the results are stored
+     * @param reset Indicates whether the text string will be cleaned before entering data
+     * @param print_tag Indicates whether the label of each sensor should be displayed
+     * @param print_value Indicates whether the value of each sensor should be displayed
+     * @param delim Character that indicates the separator of the fields shown
+     **/
+    void bulk_results(String &str, bool reset = true, bool print_tag = true,
+                        bool print_value = true, char delim = ',');
     
 private:
     uint8_t n_sensors;

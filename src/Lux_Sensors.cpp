@@ -28,7 +28,7 @@ bool Lux_Sensors::add_sensor(Lux_Sensors::Lux_Sensor_model_t model, uint8_t addr
         delay(200);
     }
 
-    uint8_t act_sens = get_n_sensors();
+    uint8_t act_sens = n_sensors_BH + n_sensors_MAX;
     switch (model) {
         case mod_BH1750:
             lux_sensors[act_sens].sensor = new BH1750(addr);    // Instanciate new BH1750 object
@@ -51,6 +51,8 @@ bool Lux_Sensors::add_sensor(Lux_Sensors::Lux_Sensor_model_t model, uint8_t addr
             lux_sensors[act_sens].model = mod_MAX44009;
             n_sensors_MAX++;
             break;
+        default:
+            return false;
     }
 
     return true;
@@ -95,16 +97,18 @@ Lux_Sensors::Lux_Sensor_model_t Lux_Sensors::get_model_sensors(uint8_t n_sensor)
     return lux_sensors[n_sensor].model;
 }
 
-void Lux_Sensors::bulk_results(String &str, bool reset, bool print_tag, char delim) {
-    if (reset) str.remove(0);                              // Indicates whether the string should be deleted before entering the new values
-    
+void Lux_Sensors::bulk_results(String &str, bool reset, bool print_tag, bool print_value, char delim) {
+    if (reset) str.remove(0);                              // Delete string before entering the new values
+    if (str != "") str.concat(delim);                      // If string is not empty, add delimiter
+
     for (uint8_t i=0; i<get_n_sensors(); i++) {
         if (i && delim != '\0') str.concat(delim);
         if (print_tag) {
-            str.concat("lux");
-            str += i + 1;
-            str.concat("=");
+            str.concat(F("Lux"));
+            str += i+1;
+
+            if (print_value) str.concat(F("="));
         }
-        str.concat(lux_sensors[i].read_val);
+        if (print_value) str.concat(lux_sensors[i].read_val);
     }
 }

@@ -69,7 +69,9 @@
 #define SD_CARD_SS_PIN             PIN_SPI_SS              // Slave Select/Pin lector SD (PIN_SPI_SS = 53)
 #define SD_SAVE_DEF_ENABLED        1                       // Indicates whether save data sensors on SD is enabled or not by default
 #define SD_MAX_FILENAME_SIZE       14                      // Defines de max size of filename
-#define INI_CFG_FILENAME           "/config.ini"           // Filename of config ini file
+#define SD_INI_CFG_FILENAME        "/config.ini"           // Filename of config ini file
+#define SD_DATA_DELIMITED          '#'                     // Char delimiter for tags & data bulks in SD
+
 #define INI_FILE_BUFFER_LEN        80                      // Indicates the size of the buffer to get values from the start file
 
 

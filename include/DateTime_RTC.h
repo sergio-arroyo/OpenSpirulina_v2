@@ -6,8 +6,8 @@
  * DateTime_RTC class used to obtain and control time with RTC
  * 
  */
-#ifndef DATETIME_RTC_h
-#define DATETIME_RTC_h
+#ifndef DateTime_RTC_h
+#define DateTime_RTC_h
 
 #include <Arduino.h>
 #include <RTClib.h>

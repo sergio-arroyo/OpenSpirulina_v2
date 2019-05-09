@@ -14,7 +14,7 @@
 DO_Sensor::DO_Sensor() {
     n_samples    = DO_SENS_N_SAMP_READ;
     ms_reads     = DO_SENS_MS_READS;
-    lux_results  = {0, 0, 0, 0, 0};
+    lux_results  = {0, };
     initialized  = false;
 }
 
@@ -155,3 +155,41 @@ bool DO_Sensor::is_init() {
     return initialized;
 }
 
+void DO_Sensor::bulk_results(String &str, bool reset, bool print_tag, bool print_value, char delim) {
+    if (reset) str.remove(0);                              // Delete string before entering the new values
+    if (str != "") str.concat(delim);                      // If string is not empty, add delimiter
+    
+    if (print_tag) {                                       // preLux value
+        str.concat(F("DO_pLux"));
+        if (print_value) str.concat(F("="));
+    }
+    if (print_value) str.concat(lux_results.preLux_value);
+    str.concat(delim);
+
+    if (print_tag) {                                       // Red value
+        str.concat(F("DO_R"));
+        if (print_value) str.concat(F("="));
+    }
+    if (print_value) str.concat(lux_results.R_value);
+    str.concat(delim);
+
+    if (print_tag) {                                       // Green value
+        str.concat(F("DO_G"));
+        if (print_value) str.concat(F("="));
+    }
+    if (print_value) str.concat(lux_results.G_value);
+    str.concat(delim);
+
+    if (print_tag) {                                       // Blue value
+        str.concat(F("DO_B"));
+        if (print_value) str.concat(F("="));
+    }
+    if (print_value) str.concat(lux_results.B_value);
+    str.concat(delim);
+    
+    if (print_tag) {                                       // White (RGB) value
+        str.concat(F("DO_W"));
+        if (print_value) str.concat(F("="));
+    }
+    if (print_value) str.concat(lux_results.W_value);
+}

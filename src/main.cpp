@@ -63,7 +63,7 @@ WP_Temp_Sensors *wp_t_sensors;                             // DS18B20 Sensors cl
 Current_Sensors *curr_sensors;                             // Current sensors
 
 
-File myFile;
+File objFile;
 char fileName[SD_MAX_FILENAME_SIZE] = "";                  // Name of file to save data readed from sensors
 
 uint8_t eth_mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};  // MAC address for the ethernet controller
@@ -230,167 +230,72 @@ void SD_get_next_FileName(char* _fileName) {
     } while (SD.exists(_fileName));
 }
 
-/* Writing title headers to file */
-//TODO: Implementar volgado de las cabeceras (el mismo volcado de datos con tags pero sin valores)
-void SD_write_header(const char* _fileName) {
-    myFile = SD.open(_fileName, FILE_WRITE);
+/* Write to SD the information collected from the sensors
+ * Performs dump of all result values stored in the data array
+ * 
+ * @param _fileName The name of destination file t write the data
+ * @param print_tag Indicates whether the label of each sensor should be displayed
+ * @param print_value Indicates whether the value of each sensor should be displayed
+ * @param delim Character that indicates the separator of the fields shown
+ **/
+void SD_write_data(const char* _fileName, bool print_tag, bool print_value, char delim) {
+    objFile = SD.open(_fileName, FILE_WRITE);              // Try to open file
 
-    // If file not opened okay, exit
-    if (!myFile) return;
-
-    if (RTC_enabled) myFile.print(F("DateTime#"));
-
-    // T1_s#T1_b#......#Tn_s#Tn_b#
-    uint8_t max_val = (wp_t_sensors)?wp_t_sensors->get_n_pairs():0;
-    for (uint8_t i=0; i<max_val; i++) {
-        myFile.print(F("Temp"));
-        myFile.print(i);
-        myFile.print(F("_s#"));
-
-        myFile.print(F("Temp"));
-        myFile.print(i);
-        myFile.print(F("_b#"));
-    }
-
-    // ambient1_temp#ambient1_humetat#
-    for (uint8_t i=0; i<dht_sensors.get_n_sensors(); i++) {
-        myFile.print(F("ambient_"));
-        myFile.print(i);
-        myFile.print(F("_temp#"));
-        myFile.print(F("ambient_"));  
-        myFile.print(i);
-        myFile.print(F("_humetat#"));      
-    }
-
-    // Lux sensor
-    if (lux_sensors) myFile.print(F("lux#"));
-    
-    // pH Sensor
-    uint8_t num_max = pH_sensors? pH_sensors->get_n_sensors() : 0;
-    for (uint8_t i=0; i<num_max; i++) {
-        myFile.print(F("pH_"));
-        myFile.print(i);
-        myFile.print(F("#"));
-    }
-
-    // DO Sensor
-    if (do_sensor.is_init()) {
-        myFile.print(F("pre_lux#"));                       // pre_lux value
-        myFile.print(F("DO_"));                            // Red
-        myFile.print("1");
-        myFile.print(F("_R#"));                            // Green
-        myFile.print(F("DO_"));
-        myFile.print("1");
-        myFile.print(F("_G#"));
-        myFile.print(F("DO_"));                            // Blue
-        myFile.print("1");
-        myFile.print(F("_B#"));
-        myFile.print(F("DO_"));                            // RGB (white)
-        myFile.print("1");
-        myFile.print(F("_RGB#"));                  
-    }
-
-    // CO2 Sensors
-    for (uint8_t i=0; i<num_CO2; i++) {
-        myFile.print(F("CO2_"));
-        myFile.print(i);
-        myFile.print(F("#"));
-    }
-
-    //TODO: Añadir cabeceras de corriente Ini & End
-
-    myFile.println(F(""));               // End of line
-    myFile.close();                      // close the file:
-}
-
-/* Writing results to file in SD card */
-//TODO: Implementar volcado para todas las clases!!
-void SD_save_data(const char* _fileName) {
-    String tmp_data = "";                                  // Temporal string to concatenate the information
-
-    if (DEBUG) {
-        SERIAL_MON.print("Try to open SD file: ");
-        SERIAL_MON.println(_fileName);
-    }
-    
-    myFile = SD.open(_fileName, FILE_WRITE);
-    
-    if (!myFile) {
+    if (!objFile) {
         if (DEBUG) SERIAL_MON.println(F("Error opening SD file!"));
         return;    //Exit
     }
 
-    if (RTC_enabled) {                                       //DateTime if have RTC
-        tmp_data += dateTimeRTC.getDateTime();
-        tmp_data += F("#");
+    String str_out = "";                                   // Temporal data string
+
+    // Save datetime from RTC module
+    if (RTC_enabled) {
+        if (print_tag) str_out.concat(F("DateTime"));
+        if (print_value) str_out.concat(dateTimeRTC.getDateTime());
     }
 
-    uint8_t max_val = (wp_t_sensors)?wp_t_sensors->get_n_pairs():0;
-    for (uint8_t i=0; i<max_val; i++) {                      // Temperatures del cultiu Tn_s, Tn_b, ...
-        tmp_data += wp_t_sensors->get_result_pair(i, WP_Temp_Sensors::S_Surface);
-        tmp_data += F("#");
-        tmp_data += wp_t_sensors->get_result_pair(i, WP_Temp_Sensors::S_Background);
-        tmp_data += F("#");
+    // Bulk waterproof sensors tags: t1_s#t1_b#t2_s#t2_b#...
+    if (wp_t_sensors)
+        wp_t_sensors->bulk_results(str_out, false, print_tag, print_value, delim);
+
+    // Bulk DHT sensors tags: at1#ah1#atn#ah2#...
+    if (dht_sensors.get_n_sensors() > 0)
+        dht_sensors.bulk_results(str_out, false, print_tag, print_value, delim);
+
+    // Bulk lux sensors tags: lux1#lux2#...
+    if (lux_sensors)
+        lux_sensors->bulk_results(str_out, false, print_tag, print_value, delim);
+    
+    // Bulk pH sensors
+    if (pH_sensors)
+        pH_sensors->bulk_results(str_out, false, print_tag, print_value, delim);
+
+    // Bulk DO sensor
+    if (do_sensor.is_init()) {
+        do_sensor.bulk_results(str_out, false, print_tag, print_value, delim);
     }
     
-    // Sensors DHT
-	//TODO: Cambiar el volcado de datos por el de la funcion definida ya en la clase DHT_Sensor
-    for (uint8_t i=0; i<dht_sensors.get_n_sensors(); i++) {
-        tmp_data += dht_sensors.get_Temperature(i);
-        tmp_data += F("#");
-		tmp_data += dht_sensors.get_Humidity(i);
-        tmp_data += F("#");
+    // Bulk CO2 sensors: co2_1#co2_2#...
+    if (num_CO2 > 0) {
+        if (str_out != "") str_out.concat(F("#"));
+
+        for (uint8_t i=0; i<num_CO2; i++) {
+            if (i) str_out.concat(F("#"));
+            str_out.concat(F("co2_"));
+            str_out.concat(i);
+        }
     }
 
-    // Lux sensor
-    if (lux_sensors) {
-        lux_sensors->bulk_results(tmp_data, false, false, '#');
-    }
-    
-    // pH Sensor
-    //TODO: Implementar bulk_results de PH_Sensors
-    uint8_t num_max = pH_sensors? pH_sensors->get_n_sensors() : 0;
-    for (uint8_t i=0; i<num_max; i++) {
-        tmp_data += pH_sensors->get_sensor_value(i);
-        tmp_data += F("#");
-    }
-    
-    // DO Sensor
-    //TODO: Implementar bulk_results de DO_Sensor
-    if (do_sensor.is_init()) {                                 // If have DO sensor
-        tmp_data += do_sensor.get_preLux_value();
-        tmp_data += F("#");               
-        tmp_data += do_sensor.get_Red_value();                 // R-G-B-RGB (white)
-        tmp_data += F("#");
-        tmp_data += do_sensor.get_Green_value();
-        tmp_data += F("#");
-        tmp_data += do_sensor.get_Blue_value();
-        tmp_data += F("#");
-        tmp_data += do_sensor.get_White_value();
-        tmp_data += F("#");
-    }
-    
-    // CO2 Sensors
-    for (uint8_t i=0; i<num_CO2; i++) {
-        tmp_data += array_co2[i];
-        tmp_data += F("#");
-    }
-    
-    // Current sensor init & end
-    //TODO: Implementar bulk data de Current_sensors
-    num_max = curr_sensors? curr_sensors->get_n_sensors() : 0;
-    for (uint8_t i=0; i<num_max; i++) {
-        tmp_data += curr_sensors->get_current_value(i);
-        tmp_data += F("#");
-    }
+    // Bulk current sensors tags: curr1#curr2#...
+    if (curr_sensors)
+        curr_sensors->bulk_results(str_out, false, print_tag, print_value, delim);
 
     if (DEBUG) {
-        SERIAL_MON.print(F("Data to write: "));
-        SERIAL_MON.println(tmp_data);
+        SERIAL_MON.print(F("Write in file: "));
+        SERIAL_MON.println(str_out);
     }
-
-    myFile.println(tmp_data);          // Save all obtained data in the file
-    myFile.close();                    // And close the file
+    objFile.println(str_out);                              // Write the string result to file
+    objFile.close();                                       // Close the file:
 }
 
 bool send_data_ethernet(String cadena) {
@@ -983,7 +888,7 @@ void setup() {
 		if (DEBUG) SERIAL_MON.println(F("Initialization SD done."));
 
         // Read initial config from file
-        Load_SD_Config ini(INI_CFG_FILENAME);                             // IniFile configuration
+        Load_SD_Config ini(SD_INI_CFG_FILENAME);                          // IniFile configuration
 
         // Try to open and check config file
         if (ini.open_config()) {
@@ -1011,7 +916,7 @@ void setup() {
 	// If save in SD card option is enabled
 	if (SD_save_enabled) {
 		SD_get_next_FileName(fileName);                                   // Obtain the next file name to write
-		SD_write_header(fileName);                                        // Write File headers
+        SD_write_data(fileName, true, false, SD_DATA_DELIMITED);          // Write File headers
 	}
     
     // Inicialitza LCD en cas que n'hi haigui
@@ -1082,7 +987,7 @@ void loop() {
     if (DEBUG) {
         SERIAL_MON.print(F("\nFreeMem: ")); SERIAL_MON.print(freeMemory());
         SERIAL_MON.print(F(" - loop: ")); SERIAL_MON.println(++loop_count);
-		SERIAL_MON.println(F("Getting data.."));
+		SERIAL_MON.println(F("Getting data:"));
     }
 
 	if (LCD_enabled)
@@ -1107,7 +1012,7 @@ void loop() {
 
     // Capture PH for each pH Sensor
 	if (dht_sensors.get_n_sensors() > 0) {
-		if (DEBUG) SERIAL_MON.println(F("Capture DHT sensor(s).."));
+		if (DEBUG) SERIAL_MON.println(F("Capture DHT sensors.."));
 		dht_sensors.capture_all_sensors();
 	}
 
@@ -1152,7 +1057,7 @@ void loop() {
     }
 
     // Save data to SD card
-    if (SD_save_enabled) SD_save_data(fileName);
+    if (SD_save_enabled) SD_write_data(fileName, false, true, '#');
 
 
 	/********************************************

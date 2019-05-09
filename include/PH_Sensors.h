@@ -6,8 +6,8 @@
  * PH_Sensor class used to control all PH sensors attached to the system
  * 
  */
-#ifndef PH_SENSOR_h
-#define PH_SENSOR_h
+#ifndef PH_Sensors_h
+#define PH_Sensors_h
 
 #include <Arduino.h>
 #include "Configuration.h"
@@ -64,11 +64,13 @@ public:
      * Performs dump of all result values stored in the data array
      * 
      * @param str Pointer to String where the results are stored
-     * @param print_tag Indicates whether the label of each sensor should be displayed
-     * @param delim Character that indicates the separator of the fields shown
      * @param reset Indicates whether the text string will be cleaned before entering data
+     * @param print_tag Indicates whether the label of each sensor should be displayed
+     * @param print_value Indicates whether the value of each sensor should be displayed
+     * @param delim Character that indicates the separator of the fields shown
      **/
-    void bulk_results(String* str, bool print_tag = true, char delim = ',', bool reset = false);
+    void bulk_results(String &str, bool reset = true, bool print_tag = true,
+                        bool print_value = true, char delim = ',');
 
 private:
     uint8_t n_sensors;                                     // Number of sensors that are added

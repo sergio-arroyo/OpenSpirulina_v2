@@ -85,9 +85,11 @@ public:
      * @param str Pointer to String where the results are stored
      * @param reset Indicates whether the text string will be cleaned before entering data
      * @param print_tag Indicates whether the label of each sensor should be displayed
+     * @param print_value Indicates whether the value of each sensor should be displayed
      * @param delim Character that indicates the separator of the fields shown
      **/
-    void bulk_results(String &str, bool reset = true, bool print_tag = true, char delim = ',');
+    void bulk_results(String &str, bool reset = true, bool print_tag = true,
+                        bool print_value = true, char delim = ',');
 
 private:
     uint8_t n_samples;                                     // Number of samples to obtain for each reading process

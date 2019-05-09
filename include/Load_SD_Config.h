@@ -7,8 +7,8 @@
  * 
  */
 
-#ifndef LOAD_SD_CONFIG_h
-#define LOAD_SD_CONFIG_h
+#ifndef Load_SD_Config_h
+#define Load_SD_Config_h
 
 #include <Arduino.h>
 #include <IniFile.h>
