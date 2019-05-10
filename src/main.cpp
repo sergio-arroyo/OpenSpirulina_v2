@@ -48,6 +48,7 @@ bool DEBUG = DEBUG_DEF_ENABLED;                            // Indicates whether 
 bool LCD_enabled = LCD_DEF_ENABLED;                        // Indicates whether the LCD is active
 bool RTC_enabled = RTC_DEF_ENABLED;                        // Indicates whether the RTC is active
 bool SD_save_enabled = SD_SAVE_DEF_ENABLED;                // Indicates whether the save to SD is enabled
+bool perf_pH_calib = false;                                // Indicates whether the calibration of the pH module should be carried out
 
 DateTime_RTC dateTimeRTC;                                  // RTC class object (DS3231 clock sensor)
 
@@ -203,7 +204,6 @@ void pH_calibration() {
     char buffer_L[6];                                      // String buffer
     
     lcd.clear();                                           // Clear screen
-    lcd.home ();                                           // Linea 1
     lcd.print(F("pH Calibration"));
     
     if (pH_sensors && pH_sensors->get_n_sensors() > 0) {
@@ -865,134 +865,8 @@ void SD_load_Current_sensors(IniFile* ini) {
     }
 }
 
-
-/*
-   _____ ______ _______ _    _ _____
-  / ____|  ____|__   __| |  | |  __ \
- | (___ | |__     | |  | |  | | |__) |
-  \___ \|  __|    | |  | |  | |  ___/
-  ____) | |____   | |  | |__| | |
- |_____/|______|  |_|   \____/|_|
-*/
-void setup() {
-    pinMode(PH_CALIBRATION_SWITCH_PIN, INPUT);                            // Configure the input pin for the calibration switch
-
-    Wire.begin();                                                         // Initialize the I2C bus (BH1750 library doesn't do this automatically)
-
-	// Initialize serial if DEBUG default value is true
-	if (DEBUG) SERIAL_MON.begin(SERIAL_BAUD);
-	while (DEBUG && !SERIAL_MON) { ; }                                    // wait for serial port to connect. Needed for native USB port only
-    
-	// Always init SD card because we need to read init configuration file.
-	if (SD.begin(SD_CARD_SS_PIN)) {
-		if (DEBUG) SERIAL_MON.println(F("Initialization SD done."));
-
-        // Read initial config from file
-        Load_SD_Config ini(SD_INI_CFG_FILENAME);                          // IniFile configuration
-
-        // Try to open and check config file
-        if (ini.open_config()) {
-            ini.load_bool("debug", "enabled", DEBUG);                     // Load if debug mode configuration
-            ini.load_bool("LCD", "enabled", LCD_enabled);                 // Load if LCD is enabled
-            ini.load_bool("RTC", "enabled", RTC_enabled);                 // Load if RTC is enabled
-            ini.load_bool("SD_card", "save_on_sd", SD_save_enabled);      // Load if SD save is enabled
-
-			SD_load_DHT_sensors(&ini);                                    // Initialize DHT sensors configuration
-			SD_load_Lux_sensors(&ini);                                    // Initialize Lux light sensor
-            SD_load_DO_sensor(&ini);                                      // Initialize DO sensor
-            SD_load_pH_sensors(&ini);                                     // Initialize pH sensors
-            SD_load_WP_Temp_sensors(&ini);                                // Initialize DS18B20 waterproof temperature sensors
-            SD_load_Current_sensors(&ini);                                // Initialize current sensors
-        }
-	}
-	else {
-		if (DEBUG) SERIAL_MON.println(F("Initialization SD failed!"));
-	}
-
-    // If DEBUG is active and Serial not initialized, then start this
-    if (!DEBUG_DEF_ENABLED && DEBUG) SERIAL_MON.begin(SERIAL_BAUD);
-        else if (DEBUG_DEF_ENABLED && !DEBUG) SERIAL_MON.end();
-
-	// If save in SD card option is enabled
-	if (SD_save_enabled) {
-		SD_get_next_FileName(fileName);                                   // Obtain the next file name to write
-        SD_write_data(fileName, true, false, SD_DATA_DELIMITED);          // Write File headers
-	}
-    
-    // Inicialitza LCD en cas que n'hi haigui
-	if (LCD_enabled) {
-		if (DEBUG) SERIAL_MON.println(F("Initialization LCD.."));
-
-		lcd.init();
-		lcd.show_init_msg(LCD_INIT_MSG_L1, LCD_INIT_MSG_L2,
-						  LCD_INIT_MSG_L3, LCD_INIT_MSG_L4,
-                          LCD_INIT_TIMEOUT);
-    }
-
-	// Inicialitza RTC en cas de disposar
-	if (RTC_enabled) {
-		if (DEBUG) SERIAL_MON.print(F("Init RTC Clock.. "));
-		
-		// Try to initialize the RTC module
-		if (dateTimeRTC.begin()) {
-			if (DEBUG) SERIAL_MON.println(dateTimeRTC.getDateTime());     // RTC works. Print current time
-		}
-		else {
-            RTC_enabled = false;
-			if (DEBUG) SERIAL_MON.println(F("No clock working"));         // RTC does not work
-		}
-	}
-
-	// Initialize Ethernet shield
-	if (opt_Internet == it_Ethernet) {
-		// give the ethernet module time to boot up:
-		delay(2000);
-		if (DEBUG) SERIAL_MON.println(F("Starting Ethernet Module"));
-
-		// Start the Ethernet connection using a fixed IP address and DNS server:
-		// Ethernet.begin(eth_mac, ip, myDns, gateway, subnet);
-		// DHCP IP ( For automatic IP )
-		conexio_internet = Ethernet.begin(eth_mac);
-
-		if (!conexio_internet) SERIAL_MON.println(F("[Ethernet] Fail obtain IP"));
-		
-		// Print the Ethernet board/shield's IP address:
-		if (DEBUG) {
-			SERIAL_MON.print(F("My IP address: "));
-			SERIAL_MON.println(Ethernet.localIP());
-		}
-	}
-	// Initialize GPRS Modem
-	else if(opt_Internet == it_GPRS) {
-		// Not implemented jet
-	}
-}
-
-/*
-  _      ____   ____  _____
- | |    / __ \ / __ \|  __ \
- | |   | |  | | |  | | |__) |
- | |   | |  | | |  | |  ___/
- | |___| |__| | |__| | |
- |______\____/ \____/|_|
-*/
-void loop() {
-    // If pin calibration ph switch is HIGH
-    while (digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH) {
-        if (DEBUG) SERIAL_MON.println(F("Calibration switch active!"));
-        pH_calibration();
-        delay(10000);
-    }
-
-    if (DEBUG) {
-        SERIAL_MON.print(F("\nFreeMem: ")); SERIAL_MON.print(freeMemory());
-        SERIAL_MON.print(F(" - loop: ")); SERIAL_MON.println(++loop_count);
-		SERIAL_MON.println(F("Getting data:"));
-    }
-
-	if (LCD_enabled)
-		lcd.print_msg_val(0, 3, "Getting data.. %d", (int32_t)loop_count);
-
+/* Capture the values of all available sensors */
+void capture_all_sensors() {
     if (curr_sensors) {
        if (DEBUG) SERIAL_MON.println(F("Capture current.."));
        curr_sensors->capture_all_sensors();
@@ -1033,7 +907,189 @@ void loop() {
 		if (DEBUG) SERIAL_MON.println(F("Capture CO2 sensor.."));
 		capture_CO2(pins_co2[0]);
 	}
+}
+
+/* Wait a certain time validating if the calibration switch is pressed
+ * The time is calculated with RTC module
+ * 
+ * @param waiting_secs Time in seconds you want to wait
+ * @return True if the calibration switch is active, otherwise false
+ **/
+bool wait_time_with_RTC(const uint16_t waiting_secs) {
+	uint32_t time_next_loop = dateTimeRTC.inc_unixtime(waiting_secs);  // Set next timer loop for actual time + delay time
+
+    if (DEBUG) {
+        SERIAL_MON.print(F("Waiting for "));
+        SERIAL_MON.print(waiting_secs);
+        SERIAL_MON.println(F(" seconds"));
+    }
     
+    if (LCD_enabled) lcd.print_msg(0, 3, "Next read.:");
+
+    unsigned long prev_S_millis = millis();
+    int32_t time_diff;
+    do {
+        if (digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH)
+            return true;
+        
+        // Calculates remaining time
+        time_diff = dateTimeRTC.unix_time_diff(time_next_loop);
+        
+        // Updates the remaining timeout
+        if ((millis() - prev_S_millis) >= 1000) {
+            if (LCD_enabled) lcd.print_msg_val(12, 3, "%ds ", time_diff);
+            if (DEBUG) SERIAL_MON.print(F("."));
+            prev_S_millis = millis();
+        }
+    } while (time_diff > 0);
+
+    return false;            // Exit without active de calibration switch
+}
+
+/* Wait a certain time validating if the calibration switch is pressed
+ * The time is calculated without RTC module
+ * 
+ * @param waiting_secs Time in seconds you want to wait
+ * @return True if the calibration switch is active, otherwise false
+ **/
+bool wait_time_no_RTC(const uint16_t waiting_secs) {
+    unsigned long period_millis = waiting_secs * 1000L;
+    unsigned long prev_L_millis = millis();
+    unsigned long prev_S_millis = prev_L_millis;
+    uint16_t remain_time = waiting_secs;
+    
+    if (LCD_enabled) lcd.print_msg(0, 3, "Next read.:");
+
+    while ((millis() - prev_L_millis) < period_millis) {
+        // If the calibration button is active, we exit the wait immediately
+        if (digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH)
+            return true;     // Exit because de calibration switch is active
+
+        // Updates the remaining timeout
+        if ((millis() - prev_S_millis) >= 1000) {
+            if (LCD_enabled) lcd.print_msg_val(12, 3, "%ds ", (int32_t)--remain_time);
+            if (DEBUG) SERIAL_MON.print(F("."));
+            prev_S_millis = millis();
+        }
+    }
+
+    return false;            // Exit without active de calibration switch
+}
+
+void setup() {
+    pinMode(PH_CALIBRATION_SWITCH_PIN, INPUT);                            // Configure the input pin for the calibration switch
+
+    Wire.begin();                                                         // Initialize the I2C bus (BH1750 library doesn't do this automatically)
+
+	// Initialize serial if DEBUG default value is true
+	if (DEBUG) SERIAL_MON.begin(SERIAL_BAUD);
+	while (DEBUG && !SERIAL_MON) { ; }                                    // wait for serial port to connect. Needed for native USB port only
+    
+	// Always init SD card because we need to read init configuration file.
+	if (SD.begin(SD_CARD_SS_PIN)) {
+		if (DEBUG) SERIAL_MON.println(F("Initialization SD done."));
+
+        // Read initial config from file
+        Load_SD_Config ini(SD_INI_CFG_FILENAME);                          // IniFile configuration
+
+        // Try to open and check config file
+        if (ini.open_config()) {
+            ini.load_bool("debug", "enabled", DEBUG);                     // Load if debug mode configuration
+            ini.load_bool("LCD", "enabled", LCD_enabled);                 // Load if LCD is enabled
+            ini.load_bool("RTC", "enabled", RTC_enabled);                 // Load if RTC is enabled
+            ini.load_bool("SD_card", "save_on_sd", SD_save_enabled);      // Load if SD save is enabled
+
+			SD_load_DHT_sensors(&ini);                                    // Initialize DHT sensors configuration
+			SD_load_Lux_sensors(&ini);                                    // Initialize Lux light sensor
+            SD_load_DO_sensor(&ini);                                      // Initialize DO sensor
+            SD_load_pH_sensors(&ini);                                     // Initialize pH sensors
+            SD_load_WP_Temp_sensors(&ini);                                // Initialize DS18B20 waterproof temperature sensors
+            SD_load_Current_sensors(&ini);                                // Initialize current sensors
+        }
+	}
+	else {
+		if (DEBUG) SERIAL_MON.println(F("Initialization SD failed!"));
+	}
+
+    // If DEBUG is active and Serial not initialized, then start this
+    if (!DEBUG_DEF_ENABLED && DEBUG) SERIAL_MON.begin(SERIAL_BAUD);
+        else if (DEBUG_DEF_ENABLED && !DEBUG) SERIAL_MON.end();
+
+    // Inicialitza LCD en cas que n'hi haigui
+	if (LCD_enabled) {
+		if (DEBUG) SERIAL_MON.println(F("Initialization LCD.."));
+
+		lcd.init();
+		lcd.show_init_msg(LCD_INIT_MSG_L1, LCD_INIT_MSG_L2,
+						  LCD_INIT_MSG_L3, LCD_INIT_MSG_L4,
+                          LCD_INIT_TIMEOUT);
+    }
+
+	// If save in SD card option is enabled
+	if (SD_save_enabled) {
+		SD_get_next_FileName(fileName);                                   // Obtain the next file name to write
+        SD_write_data(fileName, true, false, SD_DATA_DELIMITED);          // Write File headers
+	}
+
+	// Inicialitza RTC en cas de disposar
+	if (RTC_enabled) {
+		if (DEBUG) SERIAL_MON.print(F("Init RTC Clock.. "));
+		
+		// Try to initialize the RTC module
+		if (dateTimeRTC.begin()) {
+			if (DEBUG) SERIAL_MON.println(dateTimeRTC.getDateTime());     // RTC works. Print current time
+		}
+		else {
+            RTC_enabled = false;
+			if (DEBUG) SERIAL_MON.println(F("No clock working"));         // RTC does not work
+		}
+	}
+
+	// Initialize Ethernet shield
+	if (opt_Internet == it_Ethernet) {
+		// give the ethernet module time to boot up:
+		delay(2000);
+		if (DEBUG) SERIAL_MON.println(F("Starting Ethernet Module"));
+
+		// Start the Ethernet connection using a fixed IP address and DNS server:
+		// Ethernet.begin(eth_mac, ip, myDns, gateway, subnet);
+		// DHCP IP ( For automatic IP )
+		conexio_internet = Ethernet.begin(eth_mac);
+
+		if (!conexio_internet) SERIAL_MON.println(F("[Ethernet] Fail obtain IP"));
+		
+		// Print the Ethernet board/shield's IP address:
+		if (DEBUG) {
+			SERIAL_MON.print(F("My IP address: "));
+			SERIAL_MON.println(Ethernet.localIP());
+		}
+	}
+	// Initialize GPRS Modem
+	else if(opt_Internet == it_GPRS) {
+		// Not implemented jet
+	}
+}
+
+void loop() {
+    // If the pH switch is active, perform the calibration
+    if (perf_pH_calib) {
+        if (DEBUG) SERIAL_MON.println(F("\n[!] Calibration switch active."));
+        pH_calibration();
+        delay(10000);
+    }
+
+    if (DEBUG) {
+        SERIAL_MON.print(F("\nFreeMem: ")); SERIAL_MON.print(freeMemory());
+        SERIAL_MON.print(F(" - loop: ")); SERIAL_MON.println(++loop_count);
+		SERIAL_MON.println(F("Getting data:"));
+    }
+
+	if (LCD_enabled)
+		lcd.print_msg_val(0, 3, "Getting data.. %d", (int32_t)loop_count);
+
+    // Capture the values of all available sensors
+    capture_all_sensors();
+
     // END of capturing values
     if (LCD_enabled) mostra_LCD();
     
@@ -1043,14 +1099,14 @@ void loop() {
 			delay(200);
 			last_send = dateTimeRTC.getTime();
             delay(100);
-            last_send += " OK";
+            last_send += F(" OK");
             if (LCD_enabled) mostra_LCD();
         }
         else {
             delay(200);
             last_send = dateTimeRTC.getTime();
             delay(100);
-            last_send += " FAIL";
+            last_send += F(" FAIL");
 
             if (LCD_enabled) mostra_LCD();
         }
@@ -1059,48 +1115,10 @@ void loop() {
     // Save data to SD card
     if (SD_save_enabled) SD_write_data(fileName, false, true, '#');
 
+	// Waiting time until the next reading
+    if (RTC_enabled)
+        perf_pH_calib = wait_time_with_RTC(DELAY_SECS_NEXT_READ);
+    else
+        perf_pH_calib = wait_time_no_RTC(DELAY_SECS_NEXT_READ);
 
-	/********************************************
-	***  Waiting time until the next reading  ***
-	*********************************************/
-
-	/* If have RTC clock make timer delay if not internal delay */
-    if (RTC_enabled) {
-		uint32_t time_next_loop = dateTimeRTC.inc_unixtime(DELAY_SECS_NEXT_READ);    // Set next timer loop for actual time + delay time
-
-        if (DEBUG) {
-            SERIAL_MON.print(F("Waiting for "));
-            SERIAL_MON.print( dateTimeRTC.unix_time_diff(time_next_loop) );
-            SERIAL_MON.println(F(" seconds"));
-        }
-        
-        int32_t time_diff;
-        do {
-            time_diff = dateTimeRTC.unix_time_diff(time_next_loop);
-
-            if (LCD_enabled) lcd.print_msg_val(0, 3, "Next read.: %ds ", time_diff);
-            if (DEBUG) SERIAL_MON.print(F("."));
-            if (digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH) {
-                if (DEBUG) SERIAL_MON.println(F("Calibration switch activated!"));
-                break;
-            }
-
-            delay(1000);
-        } while (time_diff > 0);
-    }
-
-  /* If RTC is not available */
-  else {
-    // Waiting for 10 minutes
-    for (uint16_t j=DELAY_SECS_NEXT_READ; j>0; j--) {
-      if (digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH) {
-        if (DEBUG) SERIAL_MON.println(F("Calibration switch activated!"));
-        break;
-      }
-
-      if (DEBUG) SERIAL_MON.print(F("."));
-      delay(1000);
-    }
-  }
-  SERIAL_MON.flush();
 }
