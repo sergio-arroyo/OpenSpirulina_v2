@@ -1071,13 +1071,6 @@ void setup() {
 }
 
 void loop() {
-    // If the pH switch is active, perform the calibration
-    if (perf_pH_calib) {
-        if (DEBUG) SERIAL_MON.println(F("\n[!] Calibration switch active."));
-        pH_calibration();
-        delay(10000);
-    }
-
     if (DEBUG) {
         SERIAL_MON.print(F("\nFreeMem: ")); SERIAL_MON.print(freeMemory());
         SERIAL_MON.print(F(" - loop: ")); SERIAL_MON.println(++loop_count);
@@ -1113,7 +1106,7 @@ void loop() {
     }
 
     // Save data to SD card
-    if (SD_save_enabled) SD_write_data(fileName, false, true, '#');
+    if (SD_save_enabled) SD_write_data(fileName, false, true, SD_DATA_DELIMITED);
 
 	// Waiting time until the next reading
     if (RTC_enabled)
@@ -1121,4 +1114,12 @@ void loop() {
     else
         perf_pH_calib = wait_time_no_RTC(DELAY_SECS_NEXT_READ);
 
+    // If the pH switch is active, perform the calibration iteration
+    while (perf_pH_calib || digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH) {
+        if (DEBUG) SERIAL_MON.println(F("\n[!] Calibration switch active."));
+        pH_calibration();
+        
+        if (perf_pH_calib) perf_pH_calib = false;
+        delay(10000);
+    }
 }
