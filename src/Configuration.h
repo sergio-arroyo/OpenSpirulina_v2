@@ -168,5 +168,12 @@ const uint16_t CURR_SENS_DEF_VAR[] = {20, 30};
 #define CO2_SENS_N_SAMP_READ       15                      // Number of samples read from sensor
 
 
+//===========================================================
+//======================== ORP sensor =======================
+//===========================================================
+#define ORP_DEF_NUM_SENSORS        1                       // Number of sensors actived by default
+const uint8_t ORP_DEF_ADDRS[] =    {0x62};                 // Array for default pin for ORP sensors
+#define ORP_MAX_SENSORS            5                       // Maximum number of sensors that will be allowed
+
 
 #endif

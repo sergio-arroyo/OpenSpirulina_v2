@@ -1,28 +1,17 @@
 /*
- * Send Sensors Data To HTTP (PHP) Server
+ * Monitoring of spirulina cultures
  *
  * Autors:
  *   OpenSpirulina http://www.openspirulina.com
  *   Fran Romero   https://github.com/yatan
  *   Sergio Arroyo https://github.com/sergio-arroyo
- *
- * Based on:
- * 
- * Ethernet2 web client sketch:
- *   WIZ5500 based Ethernet Shield library
- *   https://github.com/adafruit/Ethernet2
- *
- * LCD LiquidCrystal_I2C LiquidCrystal Arduino library for the DFRobot I2C LCD displays:
- *   https://github.com/marcoschwartz/LiquidCrystal_I2C
- * 
- * GSM/GPRS A6 modem library:
- *   https://github.com/vshymanskyy/TinyGSM
  * 
  */
 #include <Arduino.h>
 #include "Configuration.h"                                 // General configuration file
 
 // Third-party libs
+#include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
 #include <TinyGsmClient.h>
@@ -34,11 +23,12 @@
 #include "DateTime_RTC.h"                                  // Class to control RTC date time
 #include "LCD_Screen.h"                                    // Class for LCD control
 #include "DHT_Sensors.h"                                   // Class for control all DHT sensors
-#include "DO_Sensor.h"                                     // Class for Optical Density control
+#include "DO_Sensor.h"                                     // Class for DO (Optical Density) control
 #include "Lux_Sensors.h"                                   // Class for lux sensor control
 #include "PH_Sensors.h"                                    // Class for pH sensors control
 #include "WP_Temp_Sensors.h"                               // Class for DS18 Waterproof Temperature Sensors control
 #include "Current_Sensors.h"                               // Class for current sensors control
+#include "ORP_Sensors.h"                                   // Class for ORP (Oxydo Reduction Potential) sensors control
 
 
 /*****************
@@ -56,12 +46,13 @@ LCD_Screen lcd(LCD_I2C_ADDR, LCD_COLS, LCD_ROWS,
                 LCD_CONTRAST, LCD_BACKLIGHT_ENABLED);      // LCD screen
 
 DHT_Sensors dht_sensors;                                   // Handle all DHT sensors
-DO_Sensor  do_sensor;                                      // Sensor 1 [DO] ("Optical Density")
+DO_Sensor do_sensor;                                       // DO (Optical Density) sensor
 
 Lux_Sensors *lux_sensors;                                  // Lux sensor with BH1750
 PH_Sensors *pH_sensors;                                    // pH sensors class
 WP_Temp_Sensors *wp_t_sensors;                             // DS18B20 Sensors class
 Current_Sensors *curr_sensors;                             // Current sensors
+ORP_Sensors *orp_sensors;                                  // ORP sensors
 
 
 File objFile;
@@ -70,6 +61,17 @@ char fileName[SD_MAX_FILENAME_SIZE] = "";                  // Name of file to sa
 uint8_t eth_mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};  // MAC address for the ethernet controller
 
 bool conexio_internet = false;
+
+#if DUMP_AT_COMMANDS == 1                                  // GPRS Modem
+    #include <StreamDebugger.h>
+    StreamDebugger debugger(SERIAL_AT, SERIAL_MON);
+    TinyGsm modem(debugger);
+#else
+    TinyGsm modem(SERIAL_AT);
+#endif
+
+TinyGsmClient client(modem);                               // GSM Modem client
+EthernetClient eth_client;                                 // Ethernet Network client
 
 /*
   _   _ _    _ __  __ ____  ______ _____     _____ ______ _   _  _____  ____  _____   _____
@@ -89,45 +91,12 @@ const opt_Internet_type opt_Internet = it_none;            // None | Ethernet | 
 
 const uint8_t num_CO2 = 0;                                 // CO2 sensor MAX?
 const uint8_t pins_co2[num_CO2] = {};                      // CO2 pin (Analog)
-
-
-/*
-   _____ _      ____  ____          _       __      __     _____   _____
-  / ____| |    / __ \|  _ \   /\   | |      \ \    / /\   |  __ \ / ____|
- | |  __| |   | |  | | |_) | /  \  | |       \ \  / /  \  | |__) | (___
- | | |_ | |   | |  | |  _ < / /\ \ | |        \ \/ / /\ \ |  _  / \___ \
- | |__| | |___| |__| | |_) / ____ \| |____     \  / ____ \| | \ \ ____) |
-  \_____|______\____/|____/_/    \_\______|     \/_/    \_\_|  \_\_____/
-*/
-
-//Time waiting for correct agitation of culture for correct mesuring DO
-const unsigned long time_current = 30L * 1000L; //Time un seconds between current ini current end measure.
-
-// Array of CO2 sensors
-float array_co2[num_CO2];
-
+float array_co2[num_CO2];                                  // Array of CO2 sensors
 
 //TODO: Cambiar tipo de dato de last_send de String a char[9]
 //char last_send[9];
 String last_send;                                          //Last time sended data
 uint16_t loop_count = 0;
-
-
-// GPRS Modem
-#if DUMP_AT_COMMANDS == 1
-    #include <StreamDebugger.h>
-    StreamDebugger debugger(SERIAL_AT, SERIAL_MON);
-    TinyGsm modem(debugger);
-#else
-    TinyGsm modem(SERIAL_AT);
-#endif
-
-// GSM Modem client
-TinyGsmClient client(modem);
-
-// Ethernet Network client
-EthernetClient eth_client;
-
 
 
 
@@ -254,9 +223,21 @@ void SD_write_data(const char* _fileName, bool print_tag, bool print_value, char
         if (print_value) str_out.concat(dateTimeRTC.getDateTime());
     }
 
+    // Bulk current sensors tags: curr1#curr2#...
+    if (curr_sensors)
+        curr_sensors->bulk_results(str_out, false, print_tag, print_value, delim);
+
     // Bulk waterproof sensors tags: t1_s#t1_b#t2_s#t2_b#...
     if (wp_t_sensors)
         wp_t_sensors->bulk_results(str_out, false, print_tag, print_value, delim);
+
+    // Bulk pH sensors
+    if (pH_sensors)
+        pH_sensors->bulk_results(str_out, false, print_tag, print_value, delim);
+
+    // Bulk ORP sensors
+    if (orp_sensors)
+        orp_sensors->bulk_results(str_out, false, print_tag, print_value, delim);
 
     // Bulk DHT sensors tags: at1#ah1#atn#ah2#...
     if (dht_sensors.get_n_sensors() > 0)
@@ -266,10 +247,6 @@ void SD_write_data(const char* _fileName, bool print_tag, bool print_value, char
     if (lux_sensors)
         lux_sensors->bulk_results(str_out, false, print_tag, print_value, delim);
     
-    // Bulk pH sensors
-    if (pH_sensors)
-        pH_sensors->bulk_results(str_out, false, print_tag, print_value, delim);
-
     // Bulk DO sensor
     if (do_sensor.is_init()) {
         do_sensor.bulk_results(str_out, false, print_tag, print_value, delim);
@@ -285,10 +262,6 @@ void SD_write_data(const char* _fileName, bool print_tag, bool print_value, char
             str_out.concat(i);
         }
     }
-
-    // Bulk current sensors tags: curr1#curr2#...
-    if (curr_sensors)
-        curr_sensors->bulk_results(str_out, false, print_tag, print_value, delim);
 
     if (DEBUG) {
         SERIAL_MON.print(F("Write in file: "));
@@ -563,7 +536,7 @@ bool send_data_server() {
 
 void SD_load_DHT_sensors(Load_SD_Config* ini) {
 	char buffer[INI_FILE_BUFFER_LEN] = "";
-	char tag_sensor[22] = "";
+	char tag_sensor[14] = "";
 	bool found;
 	uint8_t i = 1;
 
@@ -701,7 +674,7 @@ void SD_load_DO_sensor(IniFile* ini) {
 
 void SD_load_pH_sensors(IniFile* ini) {
 	char buffer[INI_FILE_BUFFER_LEN] = "";
-	char tag_sensor[22] = "";
+	char tag_sensor[14] = "";
 	bool found;
 	uint8_t i = 1;
 
@@ -728,6 +701,39 @@ void SD_load_pH_sensors(IniFile* ini) {
 			    SERIAL_MON.print(F(". Pin = ")); SERIAL_MON.println(PH_DEF_PIN_SENSORS[i]);
             }
             pH_sensors->add_sensor(PH_DEF_PIN_SENSORS[i]);
+		}
+	}
+}
+
+void SD_load_ORP_sensors(IniFile* ini) {
+	char buffer[INI_FILE_BUFFER_LEN] = "";
+	char tag_sensor[15] = "";
+	bool found;
+	uint8_t i = 1;
+
+	if (DEBUG) SERIAL_MON.println(F("Loading ORP sensors config.."));
+	do {
+		sprintf(tag_sensor, "sensor%d.addr", i++);
+		found = ini->getValue("sensors:ORP", tag_sensor, buffer, sizeof(buffer));
+		if (found) {
+			uint8_t addr = (uint8_t)strtol(buffer, NULL, 16);    // Convert hex char[] to byte value
+			Serial.print(F("  > Found config: ")); Serial.print(tag_sensor);
+			Serial.print(F(". Addr = 0x")); Serial.println(addr, HEX);
+
+            if (!orp_sensors) orp_sensors = new ORP_Sensors();     // If the object has not been initialized yet, we do it now
+            orp_sensors->add_sensor(addr);
+		}
+	} while (found);
+
+	// If no configuration found in IniFile..
+	if (!orp_sensors && ORP_DEF_NUM_SENSORS > 0) {
+		if (DEBUG) SERIAL_MON.println(F("No ORP config. found. Loading default.."));
+		for (i=0; i<ORP_DEF_NUM_SENSORS; i++) {
+            if (DEBUG) {
+                SERIAL_MON.print(F("  > Found config: sensor")); SERIAL_MON.print(i+1);
+			    SERIAL_MON.print(F(". Addr = 0x")); SERIAL_MON.println(ORP_DEF_ADDRS[i], HEX);
+            }
+            pH_sensors->add_sensor(ORP_DEF_ADDRS[i]);
 		}
 	}
 }
@@ -868,8 +874,8 @@ void SD_load_Current_sensors(IniFile* ini) {
 /* Capture the values of all available sensors */
 void capture_all_sensors() {
     if (curr_sensors) {
-       if (DEBUG) SERIAL_MON.println(F("Capture current.."));
-       curr_sensors->capture_all_sensors();
+        if (DEBUG) SERIAL_MON.println(F("Capture current.."));
+        curr_sensors->capture_all_sensors();
     }
 
     // Si tenim sondes de temperatura
@@ -882,6 +888,11 @@ void capture_all_sensors() {
     if (pH_sensors) {
         if (DEBUG) SERIAL_MON.println(F("Capture pH sensors.. "));
         pH_sensors->capture_all_sensors();
+    }
+
+    if (orp_sensors) {
+        if (DEBUG) SERIAL_MON.println(F("Capture ORP sensors.. "));
+        orp_sensors->capture_all_sensors();
     }
 
     // Capture PH for each pH Sensor
@@ -1003,6 +1014,7 @@ void setup() {
 			SD_load_Lux_sensors(&ini);                                    // Initialize Lux light sensor
             SD_load_DO_sensor(&ini);                                      // Initialize DO sensor
             SD_load_pH_sensors(&ini);                                     // Initialize pH sensors
+            SD_load_ORP_sensors(&ini);                                    // Initialize ORP sensors
             SD_load_WP_Temp_sensors(&ini);                                // Initialize DS18B20 waterproof temperature sensors
             SD_load_Current_sensors(&ini);                                // Initialize current sensors
         }
