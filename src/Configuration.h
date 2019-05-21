@@ -10,6 +10,13 @@
 #define OpenSpir_configuration_h
 
 #include "OpenSpir_Shield_conn.h"
+#include "OS_def_types.h"
+
+//===========================================================
+//======================= Serial debug ======================
+//===========================================================
+#define OPENSPIRULINA_VER          "v2.0.1b"
+
 
 //===========================================================
 //======================= Serial debug ======================
@@ -17,6 +24,14 @@
 #define DEBUG_DEF_ENABLED          1                       // Indicates whether serial debugging is enabled or not by default
 #define SERIAL_MON                 Serial                  // Serial output for debug console
 #define SERIAL_BAUD                115200                  // Data rate in bits per second (baud)
+
+
+//===========================================================
+//======================= Net options =======================
+//===========================================================
+const uint8_t ETH_MAC[] = {0xDE,0xAD,0xBE,0xEF,0xFE,0xED}; // MAC address for the ethernet controller
+const Internet_cnn_type NET_DEF_CNN_TYPE = it_none;
+#define MQTT_MAX_PACKET_SIZE       300                     // Defines max size of packet MQTT (included header)
 
 
 //===========================================================
@@ -59,7 +74,7 @@
 #define LCD_INIT_MSG_L1            "   OpenSpirulina"      // Start message that will be displayed on the screen
 #define LCD_INIT_MSG_L2            "   -------------"      //
 #define LCD_INIT_MSG_L3            ""                      //
-#define LCD_INIT_MSG_L4            "       Please wait.."  //
+#define LCD_INIT_MSG_L4            OPENSPIRULINA_VER       //
 #define LCD_INIT_TIMEOUT           5000                    // Time that the start message is displayed
 
 
@@ -99,7 +114,7 @@ const uint8_t DHT_DEF_SENSORS[] =  {OPENSPIR_VGA_PIN4};    // Array for default 
 #define LUX_SENS_N_SAMP_READ       10                      // Number of samples read from sensor
 
 #define LUX_SENS_DEF_NUM          2                        // Number of current sensors by default
-const uint8_t LUX_SENS_DEF_MODELS[]   = {1, 2};            // 1=BH1750 model, 2=MAX44009
+const uint8_t LUX_SENS_DEF_MODELS[]   = {1, 2};            // Available models: 1=BH1750, 2=MAX44009
 const uint8_t LUX_SENS_DEF_ADDRESS[]  = {0x5C, 0x4A};      // Array for default address for lux sensors
 const uint8_t LUX_SENS_DEF_ADDR_PIN[] = {34, 0};
 
@@ -121,8 +136,7 @@ const uint8_t LUX_SENS_DEF_ADDR_PIN[] = {34, 0};
 //===========================================================
 #define PH_CALIBRATION_SWITCH_PIN  OPENSPIR_SHIELD_SW1     // Pin for pH calibration switch
 #define PH_DEF_NUM_SENSORS         1                       // Number of sensors actived by default
-const uint8_t PH_DEF_PIN_SENSORS[] =  {OPENSPIR_SHIELD_J1  // Array for default pins for pH sensors
-                                      };
+const uint8_t PH_DEF_PIN_SENSORS[] = {OPENSPIR_SHIELD_J1}; // Array for default pins for pH sensors
 #define PH_MAX_NUM_SENSORS         3                       // Maximum number of pH sensors that can be connected
 #define PH_SENS_N_SAMP_READ        10                      // Number of samples read from sensor
 
@@ -164,8 +178,9 @@ const uint16_t CURR_SENS_DEF_VAR[] = {20, 30};
 //===========================================================
 //======================== CO2 sensor =======================
 //===========================================================
-#define CO2_DEF_NUM_SENSORS        1
+#define CO2_DEF_NUM_SENSORS        0
 #define CO2_SENS_N_SAMP_READ       15                      // Number of samples read from sensor
+const uint8_t CO2_SENS_DEF_PINS[] = {};                    // CO2 pin (Analog)
 
 
 //===========================================================

@@ -23,7 +23,7 @@ public:
         mod_BH1750,
         mod_MAX44009
     };
-
+    
     /**
      * Constructor
      **/

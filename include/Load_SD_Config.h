@@ -13,16 +13,38 @@
 #include <Arduino.h>
 #include <IniFile.h>
 #include "Configuration.h"
+#include "Genenal_functions.h"
+#include "DHT_Sensors.h"
+#include "DO_Sensor.h"
+#include "PH_Sensors.h"
+#include "Lux_Sensors.h"
+#include "ORP_Sensors.h"
+#include "WP_Temp_Sensors.h"
+#include "Current_Sensors.h"
 
-class Load_SD_Config : public IniFile {
-private:
-	char buffer[INI_FILE_BUFFER_LEN];
+//TODO: documentar métodos
 
-public:
-	Load_SD_Config(const char* filename);
+bool SD_check_IniFile(IniFile *ini_file);
 
-	bool open_config();
-    void load_bool(const char* section, const char* key, bool &val);
-};
+void SD_load_connection_type(IniFile *ini, Internet_cnn_type &option);
+
+void SD_load_DHT_sensors(IniFile *ini, DHT_Sensors *sensors);
+
+void SD_load_DO_sensor(IniFile *ini, DO_Sensor *sensor);
+
+void SD_load_pH_sensors(IniFile *ini, PH_Sensors *&sensors);
+
+bool extract_str_params_Lux_sensor(char *str, Lux_Sensors::Lux_Sensor_model_t &model, uint8_t &addr, uint8_t &addr_pin);
+
+void SD_load_Lux_sensors(IniFile *ini, Lux_Sensors *&sensors);
+
+void SD_load_ORP_sensors(IniFile *ini, ORP_Sensors *&sensors);
+
+void SD_load_WP_Temp_sensors(IniFile *ini, WP_Temp_Sensors *&sensors);
+
+bool extract_str_params_Current_sensor(char *str, uint8_t &pin, Current_Sensors::Current_Model_t &model, uint16_t &var);
+
+void SD_load_Current_sensors(IniFile *ini, Current_Sensors *&sensors);
+
 
 #endif

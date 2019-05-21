@@ -71,6 +71,18 @@ public:
      **/
     int32_t unix_time_diff(int32_t target);
 
+    /**
+     * Change date & time in RTC modeule
+     * 
+     * @year Year to update
+     * @month Month to update
+     * @day Day to update
+     * @hour Hour to update
+     * @min Minute to update
+     * @sec Seconds to update
+     **/
+    void set_DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t min, uint8_t sec);
+
 private:
     bool initialized;
     
