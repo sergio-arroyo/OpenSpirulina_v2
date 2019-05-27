@@ -17,5 +17,18 @@ enum Internet_cnn_type : uint8_t {                         // Valid Internet con
 	it_Wifi
 };
 
+struct Culture_ID_st {                                     // Identify a specific culture
+    char country[4];
+    char city[4];
+    char culture[7];
+    char host_id[11];
+};
+
+struct MQTT_Cnn_st {
+    char server[51];
+    uint16_t port;
+    char usr[21]; 
+    char psw[21];
+};
 
 #endif

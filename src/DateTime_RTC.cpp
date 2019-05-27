@@ -19,7 +19,6 @@ bool DateTime_RTC::begin() {
     return initialized;
 }
 
-//TODO: Revisar forma de retornar char*
 const char* DateTime_RTC::getDateTime() const {
     DateTime dt_now = now();
     static char dttm[21];
@@ -39,12 +38,10 @@ const char* DateTime_RTC::getDate() const {
     return dt;
 }
 
-const char* DateTime_RTC::getTime() const {
+void DateTime_RTC::getTime(char *tm) {
     DateTime dt_now = now();
-    static char tm[10];
     
-    sprintf(tm, "%02d:%02d:%02d", dt_now.hour(),  dt_now.minute(), dt_now.second());
-    return tm;
+    sprintf(tm, "%02d:%02d:%02d", dt_now.hour(), dt_now.minute(), dt_now.second());
 }
 
 uint32_t DateTime_RTC::inc_unixtime(int32_t diffSecs) {
@@ -56,5 +53,5 @@ int32_t DateTime_RTC::unix_time_diff(int32_t target) {
 }
 
 void DateTime_RTC::set_DateTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t min, uint8_t sec) {
-    
+    adjust(DateTime(year, month, day, hour, min, sec));
 }

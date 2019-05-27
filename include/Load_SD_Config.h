@@ -12,8 +12,10 @@
 
 #include <Arduino.h>
 #include <IniFile.h>
+#include <Ethernet.h>
 #include "Configuration.h"
 #include "Genenal_functions.h"
+#include "MQTT_Pub.h"
 #include "DHT_Sensors.h"
 #include "DO_Sensor.h"
 #include "PH_Sensors.h"
@@ -26,7 +28,13 @@
 
 bool SD_check_IniFile(IniFile *ini_file);
 
-void SD_load_connection_type(IniFile *ini, Internet_cnn_type &option);
+void SD_load_culture_ID(IniFile *ini, Culture_ID_st *culture_id);
+
+void SD_load_MQTT_config(IniFile *ini, MQTT_Pub *&mqtt_pub, Culture_ID_st *culture_id);
+
+void SD_load_Cnn_type(IniFile *ini, Internet_cnn_type &option);
+
+void SD_load_Eth_config(IniFile *ini, uint8_t *mac);
 
 void SD_load_DHT_sensors(IniFile *ini, DHT_Sensors *sensors);
 

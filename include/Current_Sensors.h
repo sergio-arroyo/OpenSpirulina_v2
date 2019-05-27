@@ -39,7 +39,7 @@ public:
      * @param var Indicates the variation value for the sensor 
      * @return Return true if sensor added correctly, otherwise retunrs false
      **/
-    bool add_sensor(uint8_t pin, Current_Model_t model, uint16_t var);
+    bool add_sensor(uint8_t pin, Current_Model_t model, const uint16_t var);
 
     /**
      * Get the value of the sensor captured in the instant
@@ -73,7 +73,7 @@ public:
      * 
      * @param _v_ref The voltage reference (in mV)
      **/
-    void set_volt_ref(uint16_t _v_ref);
+    void set_volt_ref(const uint16_t _v_ref);
 
     /**
      * Performs dump of all result values stored in the data array

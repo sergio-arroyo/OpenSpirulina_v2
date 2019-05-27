@@ -20,7 +20,7 @@ Current_Sensors::Current_Sensors() {
     n_sensors = 0;
 }
 
-bool Current_Sensors::add_sensor(uint8_t pin, Current_Model_t model, uint16_t var) {
+bool Current_Sensors::add_sensor(uint8_t pin, Current_Model_t model, const uint16_t var) {
     if (n_sensors >= CURR_MAX_NUM_SENSORS) return false;
 
     sensors[n_sensors].model = model;
@@ -93,7 +93,7 @@ const uint16_t Current_Sensors::get_volt_ref() {
     return v_ref;
 }
 
-void Current_Sensors::set_volt_ref(uint16_t _v_ref) {
+void Current_Sensors::set_volt_ref(const uint16_t _v_ref) {
     v_ref = _v_ref;
 }
 

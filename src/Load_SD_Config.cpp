@@ -11,6 +11,7 @@
 
 extern bool DEBUG;
 
+
 /* Open Ini config file and check if it's in correct format */
 bool SD_check_IniFile(IniFile *ini) {
     char buffer[INI_FILE_BUFFER_LEN];
@@ -36,29 +37,108 @@ bool SD_check_IniFile(IniFile *ini) {
     return true;
 }
 
-void SD_load_connection_type(IniFile *ini, Internet_cnn_type &option) {
+void SD_load_culture_ID(IniFile *ini, Culture_ID_st *culture_id) {
+    char buffer[INI_FILE_BUFFER_LEN] = "";
+    const char *section = "culture";
+
+    if (DEBUG) SERIAL_MON.println(F("Loading culture ID.."));
+
+    if (ini->getValue(section, "country", buffer, sizeof(buffer)))
+        strncpy(culture_id->country, buffer, 3);
+    
+    if (ini->getValue(section, "city", buffer, sizeof(buffer)))
+        strncpy(culture_id->city, buffer, 3);
+
+    if (ini->getValue(section, "culture", buffer, sizeof(buffer)))
+        strncpy(culture_id->culture, buffer, 6);
+
+    if (ini->getValue(section, "host_id", buffer, sizeof(buffer)))
+        strncpy(culture_id->host_id, buffer, 10);
+
+    if (DEBUG) {
+        Serial.print(F("  > country: ")); Serial.println(culture_id->country);
+        Serial.print(F("  > city   : ")); Serial.println(culture_id->city);
+        Serial.print(F("  > culture: ")); Serial.println(culture_id->culture);
+        Serial.print(F("  > host_id: ")); Serial.println(culture_id->host_id);
+    }
+}
+
+void SD_load_MQTT_config(IniFile *ini, MQTT_Pub *&mqtt_pub, Culture_ID_st *culture_id) {
+    char buffer[INI_FILE_BUFFER_LEN] = "";
+    const char *section = "rpt:MQTT";
+    MQTT_Cnn_st mqtt_info = {                              // MQTT broker connection information
+        MQTT_SERVER_DEST,
+        MQTT_PORT_DEST,
+        MQTT_BROKER_USR,
+        MQTT_BROKER_PSW
+    };
+    
+    if (DEBUG) SERIAL_MON.println(F("Loading MQTT conn. info.."));
+
+    if (ini->getValue(section, "server", buffer, sizeof(buffer)))
+        strncpy(mqtt_info.server, buffer, SERVER_MAX_NAME_SIZE);
+    
+    ini->getValue(section, "port", buffer, sizeof(buffer), mqtt_info.port);
+    
+    if (ini->getValue(section, "usr", buffer, sizeof(buffer)))
+        strncpy(mqtt_info.usr, buffer, 20);
+
+    if (ini->getValue(section, "psw", buffer, sizeof(buffer)))
+        strncpy(mqtt_info.psw, buffer, 20);
+    
+    // Instanciate MQTT publisher
+    mqtt_pub = new MQTT_Pub(&mqtt_info, culture_id);
+}
+
+void SD_load_Cnn_type(IniFile *ini, Internet_cnn_type &option) {
    	char buffer[INI_FILE_BUFFER_LEN] = "";
     
     if (DEBUG) SERIAL_MON.println(F("Loading connection type.."));
 
-    // Read DO sensor address (hexadecimal format)
+    // Read the connection type
     if (ini->getValue("net", "cnn_type", buffer, sizeof(buffer))) {
         // Ethernet cnn type
-        if (strcmp(buffer, "eth") == 0)
+        if (strcmp(buffer, "eth") == 0) {
             option = it_Ethernet;
-        else
+            if (DEBUG) Serial.println(F("  > Ethernet"));
+        }
         // GPRS cnn type
-        if (strcmp(buffer, "grps") == 0)
+        else if (strcmp(buffer, "grps") == 0) {
             option = it_GPRS;
+            if (DEBUG) Serial.println(F("  > GPRS"));
+        }
         // WiFi cnn type
-        if (strcmp(buffer, "wifi") == 0)
+        else if (strcmp(buffer, "wifi") == 0) {
             option = it_Wifi;
+            if (DEBUG) Serial.println(F("  > WiFi"));
+        }
         // Undefined cnn type => no connection
-        else
+        else {
             option = it_none;
+            if (DEBUG) Serial.println(F("  > (No selection)"));
+        }
     }
-
+    
     // If the cnn_type option is not defined, the default option is maintained
+}
+
+void SD_load_Eth_config(IniFile *ini, uint8_t *mac) {
+   	char buffer[INI_FILE_BUFFER_LEN] = "";
+    
+    if (DEBUG) SERIAL_MON.println(F("Loading Ethernet config.."));
+
+    if (ini->getMACAddress("net", "eth_mac", buffer, sizeof(buffer), mac)) {
+        if (DEBUG) {
+            SERIAL_MON.print(F("  > MAC addr found = "));
+            SERIAL_MON.println(buffer);
+        }
+    } else {
+        memcpy(mac, ETH_MAC, 6);
+        if (DEBUG) {
+            SERIAL_MON.print(F("  > MAC addr found = "));
+            print_mac_address(mac);
+        }
+    }
 }
 
 void SD_load_DHT_sensors(IniFile *ini, DHT_Sensors* sensors) {

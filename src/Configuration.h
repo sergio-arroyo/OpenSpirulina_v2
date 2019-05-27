@@ -6,16 +6,26 @@
  * General configuration
  * 
  */
-#ifndef OpenSpir_configuration_h
-#define OpenSpir_configuration_h
+#ifndef OpenSpirulina_config_h
+#define OpenSpirulina_config_h
 
 #include "OpenSpir_Shield_conn.h"
 #include "OS_def_types.h"
 
+
 //===========================================================
 //======================= Serial debug ======================
 //===========================================================
-#define OPENSPIRULINA_VER          "v2.0.1b"
+#define OPENSPIRULINA_VER          "v2.0.2b"
+
+
+//===========================================================
+//======================== Culture ID =======================
+//===========================================================
+#define CULTURE_ID_COUNTRY         "ES"                    // Country code identification (max lenght = 3)
+#define CULTURE_ID_CITY            "BCN"                   // City code identification (max lenght = 3)
+#define CULTURE_ID_CULTURE         "BCN_01"                // Culture identification (max lenght = 6)
+#define CULTURE_ID_HOST            "arduino01"             // Host/MCU identification (max lenght = 10)
 
 
 //===========================================================
@@ -29,14 +39,10 @@
 //===========================================================
 //======================= Net options =======================
 //===========================================================
-const uint8_t ETH_MAC[] = {0xDE,0xAD,0xBE,0xEF,0xFE,0xED}; // MAC address for the ethernet controller
+#define ETH_SS_PIN                 10
+const uint8_t ETH_MAC[] = {0xA0,0x75,0xCB,0xD6,0x4D,0x64}; // MAC address for the ethernet controller
 const Internet_cnn_type NET_DEF_CNN_TYPE = it_none;
-#define MQTT_MAX_PACKET_SIZE       300                     // Defines max size of packet MQTT (included header)
 
-
-//===========================================================
-//======================== GSM Modem ========================
-//===========================================================
 #define TINY_GSM_MODEM_A6                                  // Select the GPRS modem
 #define TINY_GSM_RX_BUFFER         512                     // Increase the buffer
 #define SERIAL_AT                  Serial2                 // Serial port for GPRS Modem
@@ -48,12 +54,14 @@ const Internet_cnn_type NET_DEF_CNN_TYPE = it_none;
 
 
 //===========================================================
-//==================== Report server v1 =====================
+//======================= MQTT broker =======================
 //===========================================================
-#define HTTP_REP1_SERVER       "sensors.openspirulina.com" // Server connect for sending data
-#define HTTP_REP1_PORT             80                      // Server port
-#define HTTP_REP1_ID_ARDUINO       "21"                    // Define identity of Arduino
-#define HTTP_REP1_PIN_ARDUINO      "12345"                 // Define pin
+#define SERVER_MAX_NAME_SIZE       50                      // Max name size of report server
+#define MQTT_SERVER_DEST           "192.168.56.1"          // MQTT broker destination (max lenght = SERVER_MAX_NAME_SIZE)
+#define MQTT_PORT_DEST             1883                    // MQTT broker destination port (default 1883)
+#define MQTT_BROKER_USR            ""                      // MQTT broker user & password identification
+#define MQTT_BROKER_PSW            ""                      //
+#define INFLUXDB_MEASUREMENT       "sensors"               // Indicates the measurements to store data
 
 
 //===========================================================
@@ -81,7 +89,7 @@ const Internet_cnn_type NET_DEF_CNN_TYPE = it_none;
 //===========================================================
 //=========================== SD ============================
 //===========================================================
-#define SD_CARD_SS_PIN             PIN_SPI_SS              // Slave Select/Pin lector SD (PIN_SPI_SS = 53)
+#define SD_CARD_SS_PIN             4                       // Slave Select/Pin lector SD (SS_pin = 4)
 #define SD_SAVE_DEF_ENABLED        1                       // Indicates whether save data sensors on SD is enabled or not by default
 #define SD_MAX_FILENAME_SIZE       14                      // Defines de max size of filename
 #define SD_INI_CFG_FILENAME        "/config.ini"           // Filename of config ini file

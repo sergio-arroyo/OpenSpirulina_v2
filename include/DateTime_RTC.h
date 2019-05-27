@@ -52,7 +52,7 @@ public:
      * 
      * @return the time on format "hh:mm:ss"
      **/
-    const char *getTime() const;
+    void getTime(char *tm);
 
     /**
      * Get the UNIX time adding the time you want

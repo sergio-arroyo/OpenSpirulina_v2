@@ -25,3 +25,11 @@ bool convert_str_to_addr(char* str, uint8_t* addr, uint8_t max_len) {
     return (len <= max_len);
 }
 
+void print_mac_address(uint8_t *mac_addr) {
+    for (uint8_t i=0; i<6; i++) {
+        if (i) SERIAL_MON.print(F(":"));
+        if (mac_addr[i] < 10) SERIAL_MON.print(F("0"));
+        SERIAL_MON.print(mac_addr[i], HEX);
+    }
+    SERIAL_MON.println();
+}

@@ -3,37 +3,42 @@
  *
  * Autors:
  *   OpenSpirulina http://www.openspirulina.com
- *   Fran Romero   https://github.com/yatan
  *   Sergio Arroyo https://github.com/sergio-arroyo
  * 
  */
 #include <Arduino.h>
 #include "Configuration.h"                                 // General configuration file
+#include "OS_def_types.h"                                  // Define structures and enumerations 
 
 // Third-party libs
 #include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
-#include <TinyGsmClient.h>
-#include <Ethernet.h>
 #include <MemoryFree.h>
 
 // OpenSpirulina libs
 #include "Load_SD_Config.h"                                // Read the initial configuration file
+#include "Data_send.h"                                     // Send sensors data to remote server
 #include "DateTime_RTC.h"                                  // Class to control RTC date time
 #include "LCD_Screen.h"                                    // Class for LCD control
 #include "DHT_Sensors.h"                                   // Class for control all DHT sensors
 #include "DO_Sensor.h"                                     // Class for DO (Optical Density) control
 #include "Lux_Sensors.h"                                   // Class for lux sensor control
 #include "PH_Sensors.h"                                    // Class for pH sensors control
-#include "WP_Temp_Sensors.h"                               // Class for DS18 Waterproof Temperature Sensors control
+#include "WP_Temp_Sensors.h"                               // Class for DS18 waterproof temperature sensors control
 #include "Current_Sensors.h"                               // Class for current sensors control
 #include "ORP_Sensors.h"                                   // Class for ORP (Oxydo Reduction Potential) sensors control
+#include "MQTT_Pub.h"                                      // Class responsible for sending MQTT messaging to the remote broker
 
 
 /*****************
  * GLOBAL CONTROL
  *****************/
+Culture_ID_st culture_ID = {CULTURE_ID_COUNTRY,            // Identify the culture in a unique way
+                            CULTURE_ID_CITY,
+                            CULTURE_ID_CULTURE,
+                            CULTURE_ID_HOST};
+
 bool DEBUG = DEBUG_DEF_ENABLED;                            // Indicates whether the debug mode on serial monitor is active
 bool LCD_enabled = LCD_DEF_ENABLED;                        // Indicates whether the LCD is active
 bool RTC_enabled = RTC_DEF_ENABLED;                        // Indicates whether the RTC is active
@@ -59,37 +64,21 @@ float array_CO2[CO2_DEF_NUM_SENSORS];                      // Array of CO2 senso
 File objFile;
 char fileName[SD_MAX_FILENAME_SIZE] = "";                  // Name of file to save data readed from sensors
 
-#if DUMP_AT_COMMANDS == 1                                  // GPRS Modem
-    #include <StreamDebugger.h>
-    StreamDebugger debugger(SERIAL_AT, SERIAL_MON);
-    TinyGsm modem(debugger);
-#else
-    TinyGsm modem(SERIAL_AT);
-#endif
-
-// Connections to send data
-bool conexio_internet = false;
-
-TinyGsmClient client(modem);                               // GSM Modem client
-EthernetClient eth_client;                                 // Ethernet Network client
 Internet_cnn_type cnn_option = NET_DEF_CNN_TYPE;           // None | Ethernet | GPRS Modem | Wifi <-- Why not? Dream on it
 
+uint8_t eth_mac[6] = {0,};                                 // MAC address for Ethernet W5100
+bool cnn_init = false;                                     // Indicates whether the connection is active
 
-//TODO: Cambiar tipo de dato de last_send de String a char[9]
-//char last_send[9];
-String last_send;                                          //Last time sended data
-uint16_t loop_count = 0;
+char last_send[10];
+uint16_t loop_count = 0;                                   // Count reading cycles
+
+MQTT_Pub *mqtt_pub;                                        // MQTT publisher client control
 
 
 
-/*
-  ______ _    _ _   _  _____ _______ _____ ____  _   _  _____  
- |  ____| |  | | \ | |/ ____|__   __|_   _/ __ \| \ | |/ ____| 
- | |__  | |  | |  \| | |       | |    | || |  | |  \| | (___   
- |  __| | |  | | . ` | |       | |    | || |  | | . ` |\___ \  
- | |    | |__| | |\  | |____   | |   _| || |__| | |\  |____) | 
- |_|     \____/|_| \_|\_____|  |_|  |_____\____/|_| \_|_____/  
- */
+/*****************
+ * METHODS
+ *****************/
 
 /* Capture light ambient with LDR sensor*/
 float capture_LDR(uint8_t s_pin) {
@@ -143,7 +132,7 @@ void mostra_LCD() {
     if (CO2_DEF_NUM_SENSORS > 0)
         lcd.add_value_read("CO2:", array_CO2[0]);
 
-    if (last_send != "") {                                 // Show last send time
+    if (strcmp(last_send,"") == 0) {                       // Show last send time
         lcd.print_msg(0, 2, "Last: ");
         lcd.print(last_send);
     }
@@ -181,30 +170,16 @@ void SD_get_next_FileName(char* _fileName) {
     } while (SD.exists(_fileName));
 }
 
-/* Write to SD the information collected from the sensors
- * Performs dump of all result values stored in the data array
+/**
+ * Compose a string with all the results obtained from the sensors in the specified
+ * format
  * 
- * @param _fileName The name of destination file t write the data
+ * @param str_out The string result with the specified format
  * @param print_tag Indicates whether the label of each sensor should be displayed
  * @param print_value Indicates whether the value of each sensor should be displayed
  * @param delim Character that indicates the separator of the fields shown
  **/
-void SD_write_data(const char* _fileName, bool print_tag, bool print_value, char delim) {
-    objFile = SD.open(_fileName, FILE_WRITE);              // Try to open file
-
-    if (!objFile) {
-        if (DEBUG) SERIAL_MON.println(F("Error opening SD file!"));
-        return;    //Exit
-    }
-
-    String str_out = "";                                   // Temporal data string
-
-    // Save datetime from RTC module
-    if (RTC_enabled) {
-        if (print_tag) str_out.concat(F("DateTime"));
-        if (print_value) str_out.concat(dateTimeRTC.getDateTime());
-    }
-
+void compose_structure_results(String &str_out, bool print_tag, bool print_value, char delim) {
     // Bulk current sensors tags: curr1#curr2#...
     if (curr_sensors)
         curr_sensors->bulk_results(str_out, false, print_tag, print_value, delim);
@@ -244,6 +219,34 @@ void SD_write_data(const char* _fileName, bool print_tag, bool print_value, char
             str_out.concat(i);
         }
     }
+}
+
+/**
+ * Write to SD the information collected from the sensors
+ * Performs dump of all result values stored in the data array
+ * 
+ * @param _fileName The name of destination file t write the data
+ * @param print_tag Indicates whether the label of each sensor should be displayed
+ * @param print_value Indicates whether the value of each sensor should be displayed
+ * @param delim Character that indicates the separator of the fields shown
+ **/
+void SD_write_data(const char* _fileName, const bool print_tag, const bool print_value, const char delim) {
+    objFile = SD.open(_fileName, FILE_WRITE);              // Try to open file
+
+    if (!objFile) {
+        if (DEBUG) SERIAL_MON.println(F("Error opening SD file!"));
+        return;    //Exit
+    }
+        
+    String str_out = "";
+
+    if (RTC_enabled) {                                     // Save datetime from RTC module
+        if (print_tag) str_out.concat(F("DateTime"));
+        if (print_value) str_out.concat(dateTimeRTC.getDateTime());
+    }
+
+    // Bulk all sensors information
+    compose_structure_results(str_out, print_tag, print_value, delim);
 
     if (DEBUG) {
         SERIAL_MON.print(F("Write in file: "));
@@ -253,267 +256,55 @@ void SD_write_data(const char* _fileName, bool print_tag, bool print_value, char
     objFile.close();                                       // Close the file:
 }
 
-bool send_data_ethernet(String cadena) {
-    if (!conexio_internet) {
-        SERIAL_MON.println(F("[Ethernet] Getting IP by DHCP.."));
-        conexio_internet = Ethernet.begin((uint8_t*) ETH_MAC);
+bool send_data_http_server(EthernetClass *eth_if, char *host, uint16_t port) {
+	String str_out = "";
+	
+    // Bulk all sensors information
+    compose_structure_results(str_out, true, true, '&');   // Bulk all sensors information
 
-        if (!conexio_internet) {
-        SERIAL_MON.println(F("[Ethernet] Conection to router Failed"));
-        return false;
-        }
-    }
-    
-    eth_client.stop();
-    // if there's a successful connection:
-    if (eth_client.connect(HTTP_REP1_SERVER, HTTP_REP1_PORT)) {
-        if (DEBUG)
-        SERIAL_MON.println(F("Connecting to openspirulina..."));
-
-        if (DEBUG)
-        SERIAL_MON.println(cadena);
-        
-        // Send string to internet  
-        eth_client.println(cadena);
-        eth_client.println(F("Host: sensors.openspirulina.com"));
-        eth_client.println(F("User-Agent: arduino-ethernet-1"));
-        eth_client.println(F("Connection: close"));
-        eth_client.println();
-        return true;
-    }
-    else {
-        // If you couldn't make a connection:
-        SERIAL_MON.println(F("Connection to openspirulina Failed"));
-        return false;
-    }
-}
-
-bool connect_network() {
-    if(DEBUG) SERIAL_MON.println(F("Waiting for network..."));
-
-    if (!modem.waitForNetwork()) {
-        SERIAL_MON.println(F("Network [fail]"));
-        delay(1000);
-        return false;
-    }
-    else {
-        if(DEBUG) SERIAL_MON.println(F("Network [OK]"));  
-        return true;
-    }
-}
-
-bool send_data_modem(String cadena, bool step_retry) {
-    // Set GSM module baud rate
-    SERIAL_AT.begin(9600);
-
-    delay(3000);
-    if (DEBUG) SERIAL_MON.println(F("Initializing modem..."));
-        
-    if (!modem.restart()) {
-        if (DEBUG) SERIAL_MON.println(F("Modem init [fail]"));
-        delay(1000);
-        return false;
-    }
-
-    if (DEBUG) {
-        SERIAL_MON.println(F("Modem init [OK]"));    
-        SERIAL_MON.print(F("Modem: "));
-        SERIAL_MON.println( modem.getModemInfo() );
-    }
-
-    // Unlock your SIM card with a PIN
-    //modem.simUnlock("1234");    
-    if (connect_network()) {
-        // Network OK
-        if (DEBUG) {
-            SERIAL_MON.print(F("Connecting to "));
-            SERIAL_MON.println(GPRS_APN);
-        }
-
-        if (!modem.gprsConnect(GPRS_APN, GPRS_USER, GPRS_PASS)) {
-            if (DEBUG) SERIAL_MON.println(F("GRPS [fail]"));
-            delay(1000);
-
-            if (step_retry == false) {
-                if (DEBUG) SERIAL_MON.println(F("[Modem] Retrying connection !"));
-                send_data_modem(cadena, true);  // Reconnect modem and init again
-            }      
-            return false;
-        }
-    
-        IPAddress local = modem.localIP();
-        if (DEBUG) {
-            SERIAL_MON.println(F("GPRS [OK]"));
-            SERIAL_MON.print(F("Local IP: "));
-            SERIAL_MON.println(local);
-
-            SERIAL_MON.print(F("Connecting to "));
-            SERIAL_MON.println(HTTP_REP1_SERVER);
-        }
-        
-        if (!client.connect(HTTP_REP1_SERVER, HTTP_REP1_PORT)) {
-            SERIAL_MON.println(F("Server [fail]"));
-            delay(1000);
-
-            if (step_retry == false) {
-                SERIAL_MON.println(F("[Modem] Retrying connection !"));
-                send_data_modem(cadena, true);  // Reconnect modem and init again
-            }      
-            return false;
-        }
-
-        if (DEBUG) SERIAL_MON.println(F("Server [OK]"));
-
-        // Make a HTTP GET request:
-        client.print(cadena + " HTTP/1.0\r\n");
-        client.print(String("Host: ") + HTTP_REP1_SERVER + "\r\n");
-        client.print(F("Connection: close\r\n\r\n"));
-
-        /*
-        // Wait for data to arrive
-        while (client.connected() && !client.available()) {
-            delay(100);
-            SERIAL_MON.print('.');
-        };
-        
-        SERIAL_MON.println(F("Received data: "));
-        // Skip all headers
-        //client.find("\r\n\r\n");
-        // Read data
-        unsigned long timeout = millis();
-        unsigned long bytesReceived = 0;
-        while (client.connected() && millis() - timeout < 5000L) {//client.connected() &&
-            //while (client.available()) {
-            char c = client.read();
-            SERIAL_MON.print(c);
-            bytesReceived += 1;
-            timeout = millis();
-            //}
-        }
-        */
-    
-        client.stop();
-
-        if (DEBUG) SERIAL_MON.println(F("\nServer disconnected"));
-        
-        modem.gprsDisconnect();
-        if (DEBUG) SERIAL_MON.println(F("GPRS disconnected"));
-        
-        return true;
-        }
-        else {
-            SERIAL_MON.println(F("[Modem] Fail !"));
-            // Try one more time, if continue fails, continue
-            if (step_retry == false) {
-                SERIAL_MON.println(F("[Modem] Retrying connection !"));
-                send_data_modem(cadena, true);  
+	// Send data to specific remote server
+    switch (cnn_option) {
+        case it_Ethernet:
+            if (!cnn_init) {
+                // Try to init Ethernet
+                cnn_init = ETH_initialize(eth_if, eth_mac);
+                if (!cnn_init) return false;
+                
+                return ETH_send_data_http_server(host, port, &str_out);
             }
-        return false;
-        }
-    
+            break;
+        
+        case it_GPRS:
+            return MODEM_send_data(&str_out, false);
+            break;
+        
+        default: return false;                             // type not defined
+    }
+
     return false;
 }
 
-bool send_data_server() {
-	String cadena = F("GET /afegir.php?");
-	
-	// Append our ID Arduino
-	cadena += F("idarduino=");
-	cadena += HTTP_REP1_ID_ARDUINO;
+bool send_data_mqtt_broker() {
+    String str_out = "";
 
-	// Append PIN for that ID
-	cadena += F("&pin=");
-	cadena += HTTP_REP1_PIN_ARDUINO;
-
-	// Append temperatures
-    uint8_t max_val = (wp_t_sensors)?wp_t_sensors->get_n_pairs():0;
-	for (int i=0; i<max_val; i++) {
-		cadena += F("&temp");
-		cadena += i+1;
-		cadena += F("_s=");
-		cadena += wp_t_sensors->get_result_pair(i, WP_Temp_Sensors::S_Surface);
-
-		cadena += F("&temp");
-		cadena += i+1;
-		cadena += F("_b=");
-		cadena += wp_t_sensors->get_result_pair(i, WP_Temp_Sensors::S_Background);
-	}
-
-	// Append Ambient temperatures and Humidity
-	//TODO: Cambiar el volcado de datos por el de la funcion definida ya en la clase DHT_Sensor
-	for (uint8_t i=0; i<dht_sensors.get_n_sensors(); i++) {
-		cadena += F("&ta");
-		cadena += i+1;
-		cadena += "=";
-		cadena += dht_sensors.get_Temperature(i);
-		cadena += F("&ha");
-		cadena += i+1;
-		cadena += "=";
-		cadena += dht_sensors.get_Humidity(i);
-	}
-  
-	// Append Lux sensors
-	if (lux_sensors) {
-        lux_sensors->bulk_results(cadena, false, true, '&');
-	}
-
-	// Append pH Sensor
-    uint8_t num_max = pH_sensors? pH_sensors->get_n_sensors() : 0;
-	for (int i=0; i<num_max; i++) {
-		cadena += "&ph";
-		cadena += i+1;
-		cadena += "=";
-		cadena += pH_sensors->get_sensor_value(i);
-	}  
-
-	// Append DO Sensor
-	if (do_sensor.is_init()) {                             // If have DO sensor
-		cadena += "&pre_L=";                               // Previous lux
-		cadena += do_sensor.get_preLux_value();            // Pre Lux value
-		cadena += "&do1_R=";
-		cadena += do_sensor.get_Red_value();               // Red value
-		cadena += "&do1_G=";
-		cadena += do_sensor.get_Green_value();             // Green value
-		cadena += "&do1_B=";
-		cadena += do_sensor.get_Blue_value();              // Blue value
-		cadena += "&do1_RGB=";
-		cadena += do_sensor.get_White_value();             // RGB (white) value
-	}
-
-	// Append CO2 Sensors
-	for (uint8_t i=0; i<CO2_DEF_NUM_SENSORS; i++) {
-		cadena += "&co2";
-		cadena += i+1;
-		cadena += "=";
-		cadena += array_CO2[i];
-	}
-
-	// Append Current initial & end
-    num_max = curr_sensors? curr_sensors->get_n_sensors() : 0;
-	for (uint8_t i=0; i<num_max; i++) {
-		cadena += "&curr";
-		cadena += i+1;
-		cadena += "=";
-		cadena += curr_sensors->get_current_value(i);
-	}
-
-	if (DEBUG) {
-		SERIAL_MON.print("Server petition: ");
-		SERIAL_MON.println(cadena);
-	}
+    // Bulk all sensors information
+    compose_structure_results(str_out, true, true, ',');   // Bulk all sensors information
 
 	// Send data to specific hardware
-	if (cnn_option == it_Ethernet) {
-		// Add end of GET petition for Ethernet and send
-		cadena += " HTTP/1.1";
-		return send_data_ethernet(cadena);
-	}
-	else if (cnn_option == it_GPRS) {
-		// Send petition to GPRS Modem
-		return send_data_modem(cadena, false);
-	} else {
-		return false;
-	}
+    switch (cnn_option) {
+        case it_Ethernet:
+            return mqtt_pub->publish_topic(str_out.c_str());
+            break;
+        
+        case it_GPRS:
+            //TODO: implementar envio GPRS
+            break;
+        
+        default:
+            return false;                                  // type not defined
+    }
+
+    return false;
 }
 
 /* Capture the values of all available sensors */
@@ -661,6 +452,19 @@ void setup() {
             ini.getValue("SD_card", "save_on_sd",                         // Load if SD save is enabled
                          buffer, INI_FILE_BUFFER_LEN, SD_save_enabled);
 
+            SD_load_culture_ID(&ini, &culture_ID);                        // Load culture identification
+            SD_load_Cnn_type(&ini, cnn_option);                           // Load connection type
+
+            if (cnn_option == it_Ethernet) {
+                SD_load_Eth_config(&ini, eth_mac);
+                cnn_init = ETH_initialize(&Ethernet, eth_mac);
+            } 
+            else if (cnn_option == it_GPRS) {
+                cnn_init = MODEM_connect_network();
+            }
+            
+            SD_load_MQTT_config(&ini, mqtt_pub, &culture_ID);             // Load MQTT connection information
+
 			SD_load_DHT_sensors(&ini, &dht_sensors);                      // Initialize DHT sensors configuration
             SD_load_DO_sensor(&ini, &do_sensor);                          // Initialize DO sensor
 			SD_load_Lux_sensors(&ini, lux_sensors);                       // Initialize Lux light sensor
@@ -668,7 +472,6 @@ void setup() {
             SD_load_ORP_sensors(&ini, orp_sensors);                       // Initialize ORP sensors
             SD_load_WP_Temp_sensors(&ini, wp_t_sensors);                  // Initialize DS18B20 waterproof temperature sensors
             SD_load_Current_sensors(&ini, curr_sensors);                  // Initialize current sensors
-            SD_load_connection_type(&ini, cnn_option);                    // Read the connection type config. to send data
         }
 	}
 	else {
@@ -708,30 +511,6 @@ void setup() {
 			if (DEBUG) SERIAL_MON.println(F("No clock working"));         // RTC does not work
 		}
 	}
-
-	// Initialize Ethernet shield
-	if (cnn_option == it_Ethernet) {
-		// give the ethernet module time to boot up:
-		delay(2000);
-		if (DEBUG) SERIAL_MON.println(F("Starting Ethernet Module"));
-
-		// Start the Ethernet connection using a fixed IP address and DNS server:
-		// Ethernet.begin(eth_mac, ip, myDns, gateway, subnet);
-		// DHCP IP ( For automatic IP )
-		conexio_internet = Ethernet.begin((uint8_t*) ETH_MAC);
-
-		if (!conexio_internet) SERIAL_MON.println(F("[Ethernet] Fail obtain IP"));
-		
-		// Print the Ethernet board/shield's IP address:
-		if (DEBUG) {
-			SERIAL_MON.print(F("My IP address: "));
-			SERIAL_MON.println(Ethernet.localIP());
-		}
-	}
-	// Initialize GPRS Modem
-	else if(cnn_option == it_GPRS) {
-		// Not implemented jet
-	}
 }
 
 void loop() {
@@ -746,26 +525,23 @@ void loop() {
 
     // Capture the values of all available sensors
     capture_all_sensors();
-
+    
     // END of capturing values
     if (LCD_enabled) mostra_LCD();
     
 	if (cnn_option != it_none) {
-		// Si s'envia correctament actualitzar last_send
-		if  (send_data_server()) {
-			delay(200);
-			last_send = dateTimeRTC.getTime();
-            delay(100);
-            last_send += F(" OK");
-            if (LCD_enabled) mostra_LCD();
-        }
-        else {
-            delay(200);
-            last_send = dateTimeRTC.getTime();
-            delay(100);
-            last_send += F(" FAIL");
+        if (DEBUG) SERIAL_MON.print(F("Sending data to server.. "));
 
-            if (LCD_enabled) mostra_LCD();
+        // Try to send the collected data to the remote broker
+        if (send_data_mqtt_broker()) {
+            if (DEBUG) SERIAL_MON.println(F("OK"));
+        } else {
+            if (DEBUG) SERIAL_MON.println(F("ERROR"));
+        }
+
+        if (LCD_enabled) {                                 // Update status on the screen
+            dateTimeRTC.getTime(last_send);
+            mostra_LCD();
         }
     }
 
