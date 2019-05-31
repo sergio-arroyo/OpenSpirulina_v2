@@ -23,6 +23,7 @@
 #include "ORP_Sensors.h"
 #include "WP_Temp_Sensors.h"
 #include "Current_Sensors.h"
+#include "OS_Actuators.h"
 
 //TODO: documentar métodos
 
@@ -54,5 +55,8 @@ bool extract_str_params_Current_sensor(char *str, uint8_t &pin, Current_Sensors:
 
 void SD_load_Current_sensors(IniFile *ini, Current_Sensors *&sensors);
 
+bool extract_params_Actuator(char *str, uint8_t &dev_pin, char *dev_id, uint8_t &ini_val);
+
+void SD_load_WebServerActuators(IniFile *ini, EthernetServer *&eth_server, OS_Actuators *&actuators);
 
 #endif

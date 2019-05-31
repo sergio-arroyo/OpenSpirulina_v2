@@ -424,7 +424,7 @@ bool extract_str_params_Current_sensor(char *str, uint8_t &pin, Current_Sensors:
     
     pch = strtok(NULL, ",");                               // Get the third piece
     if (pch == NULL) return false;
-    var = (uint16_t)strtol(pch, NULL, 10);                 // Obtain the pin value
+    var = (uint16_t)strtol(pch, NULL, 10);                 // Obtain the variation value
 
     return true;
 }
@@ -466,6 +466,98 @@ void SD_load_Current_sensors(IniFile *ini, Current_Sensors *&sensors) {
             if (DEBUG) {
                 SERIAL_MON.print(F("  > Found config: "));
 			    SERIAL_MON.print(F(". Pin = ")); Serial.println(CURR_SENS_DEF_PINS[i]);
+            }
+        }
+    }
+}
+
+bool extract_params_Actuator(char *str, uint8_t &dev_pin, char *dev_id, uint8_t &ini_val) {
+    char *pch;
+
+    pch = strtok(str, ",");                                // Get the first piece
+    if (pch == NULL) return false;                         // Check piece, if it's not correct, exit
+    dev_pin = (uint8_t)strtol(pch, NULL, 10);              // Obtain the pin value
+    
+    pch = strtok(NULL, ",");                               // Get the second piece
+
+    while (isspace(*pch)) ++pch;                           // Skip possible white spaces
+    char *tmp = pch;                                       // Remove trailing white space
+    while (*tmp != ',' && *tmp != '\0')
+        if (*tmp == ' '|| *tmp == '\t') *tmp++ = '\0'; else tmp++;
+
+    strncpy(dev_id, pch, ACT_MAX_DEV_ID_LEN);              // Copy the actuator ID
+
+    pch = strtok(NULL, ",");                               // Get the third piece
+    if (pch == NULL) return false;
+
+    // Read HIGH value
+    if (strcmp(pch, "HIGH") == 0) {                        // Check the initial value
+        ini_val = HIGH;
+    }
+    // Otherwise, default value is LOW
+    else {
+        ini_val = LOW;
+    }
+
+    return true;
+}
+
+void SD_load_WebServerActuators(IniFile *ini, EthernetServer *&web_server, OS_Actuators *&actuators) {
+	char buffer[INI_FILE_BUFFER_LEN] = "";
+    const char *section = "actuators";
+
+    if (DEBUG) SERIAL_MON.println(F("Loading WebServer & actuators config.."));
+    
+    // Load WebServer configurarion
+    uint16_t srv_port = ACT_WEB_SRV_DEF_PORT;
+    if (!ini->getValue(section, "srv_port", buffer, sizeof(buffer), srv_port)) {
+        if (DEBUG)
+            SERIAL_MON.println(F("  > WebServer config. not found. Charge default.."));
+    }
+
+    // Start WebServer
+    if (DEBUG) {
+        SERIAL_MON.print(F("  > WebServer start at port ")); SERIAL_MON.println(srv_port);
+    }
+    web_server = new EthernetServer(srv_port);
+    
+    // Load actuators configuration
+	char act_n[10] = "";
+    uint8_t dev_pin;
+    char dev_id[ACT_MAX_DEV_ID_LEN+1] = "";
+    uint8_t ini_val;
+    bool found;
+    uint8_t i = 1;
+
+    do {
+		sprintf(act_n, "act%d", i++);
+		found = ini->getValue(section, act_n, buffer, sizeof(buffer));
+
+		if (found && extract_params_Actuator(buffer, dev_pin, dev_id, ini_val)) {
+			if (DEBUG) {
+                SERIAL_MON.print(F("  > Found config: ")); Serial.print(act_n);
+			    SERIAL_MON.print(F(". Pin = ")); SERIAL_MON.print(F(", Act. ID = "));
+                SERIAL_MON.println(dev_id);
+            }
+
+            if (!actuators) actuators = new OS_Actuators();      //If the object has not been initialized yet, we do it now
+            actuators->add_device(dev_id, dev_pin, ini_val);
+        }
+    } while (found);
+
+    // Load default configuration
+    if (!actuators && ACT_DEV_DEF_NUM > 0) {
+        if (DEBUG) SERIAL_MON.println(F("No actuators config found. Loading default.."));
+        actuators = new OS_Actuators();
+
+        for (uint8_t i=0; i<ACT_DEV_DEF_NUM; i++) {
+            actuators->add_device(ACT_DEF_IDS[i],
+                                  ACT_DEF_PINS[i],
+                                  ACT_DEF_INI_VAL[i]);
+            if (DEBUG) {
+                SERIAL_MON.print(F(". Pin = ")); SERIAL_MON.print(ACT_DEF_PINS[i]);
+                SERIAL_MON.print(F(", Act. ID = "));
+                SERIAL_MON.println(ACT_DEF_IDS[i]);
             }
         }
     }

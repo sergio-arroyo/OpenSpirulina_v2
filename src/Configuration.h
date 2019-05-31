@@ -199,4 +199,19 @@ const uint8_t ORP_DEF_ADDRS[] =    {0x62};                 // Array for default 
 #define ORP_MAX_SENSORS            5                       // Maximum number of sensors that will be allowed
 
 
+//===========================================================
+//======================== Actuators ========================
+//===========================================================
+#define ACT_WEB_SRV_DEF_PORT       8080                    // Default Web Server port to listen actions petition
+#define ACT_WEBSRV_ACTION_STR      "GET /actuators"        // String petition triger on HTTP requests
+#define ACT_MAX_NUM_DEVICES        5                       // Maximum number of actuators that will be allowed
+#define ACT_MAX_DEV_ID_LEN         12                      // Actuator device ID max lenght
+
+#define ACT_DEV_DEF_NUM            2                       // Number of current actuators by default
+const uint8_t ACT_DEF_PINS[] = {35, 37};                   // Indicates the pin where the actuator is connected
+static const char * const ACT_DEF_IDS[] =
+    {"agitator01", "agitator02"};                          // An identification tag for device. Def max. lenght = 12
+const uint16_t ACT_DEF_INI_VAL[] = {LOW, LOW};             // Indicates the initial value that the pin must have
+
+
 #endif

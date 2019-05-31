@@ -13,8 +13,8 @@
 #include <Arduino.h>
 #include "Configuration.h"
 
+// TODO: documentar clase
 
-// TODO: documentar
 bool convert_str_to_addr(char* str, uint8_t* addr, uint8_t max_len);
 
 void print_mac_address(uint8_t *mac_addr);

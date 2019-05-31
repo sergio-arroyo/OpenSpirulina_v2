@@ -29,6 +29,7 @@
 #include "Current_Sensors.h"                               // Class for current sensors control
 #include "ORP_Sensors.h"                                   // Class for ORP (Oxydo Reduction Potential) sensors control
 #include "MQTT_Pub.h"                                      // Class responsible for sending MQTT messaging to the remote broker
+#include "OS_Actuators.h"                                  // Class responsible for interacting with external devices (such as relays, etc.)
 
 
 /*****************
@@ -73,7 +74,8 @@ char last_send[10];
 uint16_t loop_count = 0;                                   // Count reading cycles
 
 MQTT_Pub *mqtt_pub;                                        // MQTT publisher client control
-
+OS_Actuators *os_actuators;                                // External actuators;
+EthernetServer *web_server;                                // WebServer responsible for attending external requests
 
 
 /*****************
@@ -307,53 +309,163 @@ bool send_data_mqtt_broker() {
     return false;
 }
 
+bool HTTP_process_action(String *str) {
+    int16_t pos;
+    char dev_id[ACT_MAX_DEV_ID_LEN+1] = "";
+    uint8_t dev_action;
+
+    pos = str->indexOf('=');                       // Find where is the separator for the parameter and value
+
+    if (pos == -1)                                 // If it does not contain an equal, it is not an action
+        return false;
+
+    // Extract device ID
+    strncpy(dev_id, str->substring(0, pos).c_str(), ACT_MAX_DEV_ID_LEN);
+
+    // Check ON or OFF action
+    if (str->substring(pos+1).equalsIgnoreCase(F("ON"))) {
+        dev_action = HIGH;
+    } else if (str->substring(pos+1).equalsIgnoreCase(F("OFF"))) {
+        dev_action = LOW;
+    } else if (str->substring(pos+1).equalsIgnoreCase(F("SWITCH"))) {
+        dev_action = 0xFF;                         // Indicates that status switch han been requested
+    } else {
+        return false;                              // If it isn't ON or OFF, return false
+    }
+    
+    //TODO:
+    if (DEBUG) {
+        SERIAL_MON.print(F("HTTP actuator: Apply <")); SERIAL_MON.print(dev_action);
+        SERIAL_MON.print(F("> on <")); SERIAL_MON.print(dev_id); SERIAL_MON.print(F(">.. "));
+    }
+    
+    if (os_actuators->change_state(dev_id, dev_action)) {
+        if (DEBUG) SERIAL_MON.println(F("SUCCESS"));
+        return true;
+    } else {
+        if (DEBUG) SERIAL_MON.println(F("ERROR"));
+        return true;
+    }
+}
+
+void HTTP_check_action_available() {
+    // Check if there are petitions
+    EthernetClient eth_client = web_server->available();
+    
+    // If the ethernet client does not have requests, exit function
+    if (!eth_client)
+        return;
+
+    // Otherwise, the request is processed..
+    if (DEBUG)
+        SERIAL_MON.println(F("WebServer - Process requests for actions.. "));
+    
+    String str;
+    char c, c_prev = '\0';
+    int16_t pos;
+
+    while (eth_client.connected()) {
+        if (eth_client.available()) {
+            c = eth_client.read();
+            str.concat(c);
+
+            if (c == '\n' && c_prev == '\r') {                       // detect new line
+                str.trim();                                          // previus clean string
+                if (str.startsWith(ACT_WEBSRV_ACTION_STR)) {
+                    pos = str.indexOf('?');                          // clean petition string
+                    if (pos >= 0) str.remove(0, pos+1);
+                    pos = str.indexOf(' ');
+                    if (pos >= 0) str.remove(pos);
+                    str.replace('&', ',');
+
+                    if (DEBUG) {
+                        SERIAL_MON.print(F("Detected request for actions: "));
+                        SERIAL_MON.println(str);
+                    }
+
+                    if (HTTP_process_action(&str)) {
+                        eth_client.println(F("HTTP/1.1 200 OK"));
+                        eth_client.println(F("Content-Type: text/html"));
+                        eth_client.println(F("Access-Control-Allow-Origin: *"));
+                        eth_client.println(F("Connection: close"));
+                        eth_client.println();
+                        eth_client.println(F("ACTION SUCCESS"));
+
+                        break;  // exit while
+                    }
+                }
+
+                // if request is not GET /action response error
+                eth_client.println(F("HTTP/1.1 401 Unauthorized"));
+                eth_client.println(F("Content-Type: text/html"));
+                eth_client.println(F("Connection: close"));
+                eth_client.println();
+                eth_client.println(F("UNAUTHORIZED"));
+
+                break;                            // exit from read data
+            }
+            c_prev = c;
+        }
+    }
+
+    delay(10);                                    // wait to client do 
+    eth_client.stop();                            // close connection
+}
+
 /* Capture the values of all available sensors */
 void capture_all_sensors() {
     if (curr_sensors) {
         if (DEBUG) SERIAL_MON.println(F("Capture current.."));
         curr_sensors->capture_all_sensors();
     }
+    HTTP_check_action_available();                         // loop to check possible webserver petitions
 
     // Si tenim sondes de temperatura
     if (wp_t_sensors) {
 		if (DEBUG) SERIAL_MON.println(F("Capture WP temperatures.."));
 		wp_t_sensors->store_all_results();
 	}
+    HTTP_check_action_available();                         // loop to check possible webserver petitions
     
 	// Capture PH for each pH Sensor
     if (pH_sensors) {
         if (DEBUG) SERIAL_MON.println(F("Capture pH sensors.. "));
         pH_sensors->capture_all_sensors();
     }
+    HTTP_check_action_available();                         // loop to check possible webserver petitions
 
     if (orp_sensors) {
         if (DEBUG) SERIAL_MON.println(F("Capture ORP sensors.. "));
         orp_sensors->capture_all_sensors();
     }
+    HTTP_check_action_available();                         // loop to check possible webserver petitions
 
     // Capture PH for each pH Sensor
 	if (dht_sensors.get_n_sensors() > 0) {
 		if (DEBUG) SERIAL_MON.println(F("Capture DHT sensors.."));
 		dht_sensors.capture_all_sensors();
 	}
+    HTTP_check_action_available();                         // loop to check possible webserver petitions
 
     if (lux_sensors) {
 		if (DEBUG) SERIAL_MON.println(F("Capture lux sensor.."));
 		lux_sensors->capture_all_sensors();
 	}
+    HTTP_check_action_available();                         // loop to check possible webserver petitions
 
     //Capture DO values (Red, Green, Blue, and White)
     if (do_sensor.is_init()) {
 		if (DEBUG) SERIAL_MON.println(F("Capture DO sensor.."));
-        do_sensor.capture_DO(); 
-        delay(500);
+        do_sensor.capture_DO();
     }
+    HTTP_check_action_available();                         // loop to check possible webserver petitions
     
     // Capture CO2 concentration
     if (CO2_DEF_NUM_SENSORS > 0) {
 		if (DEBUG) SERIAL_MON.println(F("Capture CO2 sensor.."));
 		capture_CO2(CO2_SENS_DEF_PINS[0]);
 	}
+    HTTP_check_action_available();                         // loop to check possible webserver petitions
 }
 
 /* Wait a certain time validating if the calibration switch is pressed
@@ -388,6 +500,8 @@ bool wait_time_with_RTC(const uint16_t waiting_secs) {
             if (DEBUG) SERIAL_MON.print(F("."));
             prev_S_millis = millis();
         }
+
+        HTTP_check_action_available();                     // loop to check possible webserver petitions
     } while (time_diff > 0);
 
     return false;            // Exit without active de calibration switch
@@ -418,6 +532,8 @@ bool wait_time_no_RTC(const uint16_t waiting_secs) {
             if (DEBUG) SERIAL_MON.print(F("."));
             prev_S_millis = millis();
         }
+
+        HTTP_check_action_available();                     // loop to check possible webserver petitions
     }
 
     return false;            // Exit without active de calibration switch
@@ -472,6 +588,8 @@ void setup() {
             SD_load_ORP_sensors(&ini, orp_sensors);                       // Initialize ORP sensors
             SD_load_WP_Temp_sensors(&ini, wp_t_sensors);                  // Initialize DS18B20 waterproof temperature sensors
             SD_load_Current_sensors(&ini, curr_sensors);                  // Initialize current sensors
+
+            SD_load_WebServerActuators(&ini, web_server, os_actuators);   // Initialize WebServer & external actuators
         }
 	}
 	else {
@@ -544,6 +662,7 @@ void loop() {
             mostra_LCD();
         }
     }
+    HTTP_check_action_available();                         // loop to check possible webserver petitions
 
     // Save data to SD card
     if (SD_save_enabled) SD_write_data(fileName, false, true, SD_DATA_DELIMITED);

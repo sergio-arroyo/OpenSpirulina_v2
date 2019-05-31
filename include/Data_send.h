@@ -16,7 +16,7 @@
 #include <TinyGsmClient.h>
 
 
-//TODO: documentar
+//TODO: documentar clase
 
 bool ETH_initialize(EthernetClass *eth, uint8_t *mac);
 
