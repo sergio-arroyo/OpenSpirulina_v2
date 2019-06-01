@@ -35,6 +35,11 @@
 #define SERIAL_MON                 Serial                  // Serial output for debug console
 #define SERIAL_BAUD                115200                  // Data rate in bits per second (baud)
 
+#define DEBUG_NN(v) if (DEBUG) SERIAL_MON.print(v);        // Macros for debug
+#define DEBUG_NL(v) if (DEBUG) SERIAL_MON.println(v);
+#define DEBUG_V2(v1,v2) if (DEBUG) { SERIAL_MON.print(v1); Serial.println(v2); }
+#define DEBUG_V3(v1,v2,v3) if (DEBUG) { SERIAL_MON.print(v1); SERIAL_MON.print(v2); Serial.println(v3); }
+#define DEBUG_V4(v1,v2,v3,v4) if (DEBUG) { SERIAL_MON.print(v1); SERIAL_MON.print(v2); Serial.print(v3); Serial.println(v4);}
 
 //===========================================================
 //======================= Net options =======================

@@ -16,13 +16,29 @@
 #include "OS_def_types.h"
 
 
-//TODO: documentar clase
-
 class MQTT_Pub {
 public:
+    /**
+     * Constructor
+     * 
+     * @param mqtt_inf Structure that identifies the remote broker server
+     * @param _culture_id Structure that identifies the culture
+     **/
     MQTT_Pub(MQTT_Cnn_st *mqtt_inf, Culture_ID_st *_culture_id);
     
+    /**
+     * Reconnect to remote broker configured in constructor method
+     * 
+     * @return returns true if the process executed correctly, otherwise returns false 
+     **/
     bool broker_reconnect();
+    
+    /**
+     * Reconnect to remote broker configured in constructor method
+     * 
+     * @param payload The char array of payload for send to remote broker
+     * @return returns true if the process executed correctly, otherwise returns false 
+     **/
     bool publish_topic(const char *payload);
 
 private:

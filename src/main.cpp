@@ -89,7 +89,7 @@ float capture_LDR(uint8_t s_pin) {
 
 /* Capture CO2 sensor */
 float capture_CO2(uint8_t pin) {
-    if (DEBUG) SERIAL_MON.println(F("Capturing CO2"));
+    DEBUG_NL(F("Capturing CO2"))
 
     int32_t total_v=0;
     int16_t read_v, min_v=0, max_v=0;
@@ -142,7 +142,7 @@ void mostra_LCD() {
 
 /* Capture data in calibration mode */
 void pH_calibration() {
-    if (DEBUG) SERIAL_MON.println(F("Starting calibration mode.."));
+    DEBUG_NL(F("Starting calibration mode.."))
     char buffer_L[6];                                      // String buffer
     
     lcd.clear();                                           // Clear screen
@@ -236,7 +236,7 @@ void SD_write_data(const char* _fileName, const bool print_tag, const bool print
     objFile = SD.open(_fileName, FILE_WRITE);              // Try to open file
 
     if (!objFile) {
-        if (DEBUG) SERIAL_MON.println(F("Error opening SD file!"));
+        DEBUG_NL(F("Error opening SD file!"));
         return;    //Exit
     }
         
@@ -250,10 +250,8 @@ void SD_write_data(const char* _fileName, const bool print_tag, const bool print
     // Bulk all sensors information
     compose_structure_results(str_out, print_tag, print_value, delim);
 
-    if (DEBUG) {
-        SERIAL_MON.print(F("Write in file: "));
-        SERIAL_MON.println(str_out);
-    }
+    DEBUG_V2(F("Write in file: "), str_out)
+    
     objFile.println(str_out);                              // Write the string result to file
     objFile.close();                                       // Close the file:
 }
@@ -277,7 +275,7 @@ bool send_data_http_server(EthernetClass *eth_if, char *host, uint16_t port) {
             break;
         
         case it_GPRS:
-            return MODEM_send_data(&str_out, false);
+            return MODEM_send_data(&str_out, host, port);
             break;
         
         default: return false;                             // type not defined
@@ -296,10 +294,6 @@ bool send_data_mqtt_broker() {
     switch (cnn_option) {
         case it_Ethernet:
             return mqtt_pub->publish_topic(str_out.c_str());
-            break;
-        
-        case it_GPRS:
-            //TODO: implementar envio GPRS
             break;
         
         default:
@@ -341,10 +335,10 @@ uint8_t WebServer_process_action(String *str) {
     }
     
     if (os_actuators->change_state(dev_id, dev_action)) {
-        if (DEBUG) SERIAL_MON.println(F("SUCCESS"));
+        DEBUG_NL(F("SUCCESS"))
         return ACT_RES_PROCESS_OK;
     } else {
-        if (DEBUG) SERIAL_MON.println(F("ERROR"));
+        DEBUG_NL(F("ERROR"))
         return ACT_RES_ACT_UNDEF;
     }
 }
@@ -415,7 +409,7 @@ void WebServer_check_petition() {
     // If the ethernet client does not have requests, exit function
     if (!eth_client)
         return;
-    
+
     String str;
     char c, c_prev = '\0';
     int16_t pos;
@@ -475,54 +469,54 @@ void WebServer_check_petition() {
 /* Capture the values of all available sensors */
 void capture_all_sensors() {
     if (curr_sensors) {
-        if (DEBUG) SERIAL_MON.println(F("Capture current.."));
+        DEBUG_NL(F("Capture current.."))
         curr_sensors->capture_all_sensors();
     }
     WebServer_check_petition();                            // loop to check possible webserver petitions
 
     // Si tenim sondes de temperatura
     if (wp_t_sensors) {
-		if (DEBUG) SERIAL_MON.println(F("Capture WP temperatures.."));
+		DEBUG_NL(F("Capture WP temperatures.."))
 		wp_t_sensors->store_all_results();
 	}
     WebServer_check_petition();                            // loop to check possible webserver petitions
     
 	// Capture PH for each pH Sensor
     if (pH_sensors) {
-        if (DEBUG) SERIAL_MON.println(F("Capture pH sensors.. "));
+        DEBUG_NL(F("Capture pH sensors.. "))
         pH_sensors->capture_all_sensors();
     }
     WebServer_check_petition();                            // loop to check possible webserver petitions
 
     if (orp_sensors) {
-        if (DEBUG) SERIAL_MON.println(F("Capture ORP sensors.. "));
+        DEBUG_NL(F("Capture ORP sensors.. "))
         orp_sensors->capture_all_sensors();
     }
     WebServer_check_petition();                            // loop to check possible webserver petitions
 
     // Capture PH for each pH Sensor
 	if (dht_sensors.get_n_sensors() > 0) {
-		if (DEBUG) SERIAL_MON.println(F("Capture DHT sensors.."));
+		DEBUG_NL(F("Capture DHT sensors.."))
 		dht_sensors.capture_all_sensors();
 	}
     WebServer_check_petition();                            // loop to check possible webserver petitions
 
     if (lux_sensors) {
-		if (DEBUG) SERIAL_MON.println(F("Capture lux sensor.."));
+		DEBUG_NL(F("Capture lux sensor.."))
 		lux_sensors->capture_all_sensors();
 	}
     WebServer_check_petition();                            // loop to check possible webserver petitions
 
     //Capture DO values (Red, Green, Blue, and White)
     if (do_sensor.is_init()) {
-		if (DEBUG) SERIAL_MON.println(F("Capture DO sensor.."));
+		DEBUG_NL(F("Capture DO sensor.."))
         do_sensor.capture_DO();
     }
     WebServer_check_petition();                            // loop to check possible webserver petitions
     
     // Capture CO2 concentration
     if (CO2_DEF_NUM_SENSORS > 0) {
-		if (DEBUG) SERIAL_MON.println(F("Capture CO2 sensor.."));
+		DEBUG_NL(F("Capture CO2 sensor.."))
 		capture_CO2(CO2_SENS_DEF_PINS[0]);
 	}
     WebServer_check_petition();                            // loop to check possible webserver petitions
@@ -537,11 +531,7 @@ void capture_all_sensors() {
 bool wait_time_with_RTC(const uint16_t waiting_secs) {
 	uint32_t time_next_loop = dateTimeRTC.inc_unixtime(waiting_secs);  // Set next timer loop for actual time + delay time
 
-    if (DEBUG) {
-        SERIAL_MON.print(F("Waiting for "));
-        SERIAL_MON.print(waiting_secs);
-        SERIAL_MON.println(F(" seconds"));
-    }
+    DEBUG_V3(F("Waiting for "), waiting_secs, F(" seconds"))
     
     if (LCD_enabled) lcd.print_msg(0, 3, "Next read.:");
 
@@ -557,7 +547,7 @@ bool wait_time_with_RTC(const uint16_t waiting_secs) {
         // Updates the remaining timeout
         if ((millis() - prev_S_millis) >= 1000) {
             if (LCD_enabled) lcd.print_msg_val(12, 3, "%ds ", time_diff);
-            if (DEBUG) SERIAL_MON.print(F("."));
+            DEBUG_NN(F("."))
             prev_S_millis = millis();
         }
 
@@ -589,7 +579,7 @@ bool wait_time_no_RTC(const uint16_t waiting_secs) {
         // Updates the remaining timeout
         if ((millis() - prev_S_millis) >= 1000) {
             if (LCD_enabled) lcd.print_msg_val(12, 3, "%ds ", (int32_t)--remain_time);
-            if (DEBUG) SERIAL_MON.print(F("."));
+            DEBUG_NN(F("."))
             prev_S_millis = millis();
         }
 
@@ -612,7 +602,7 @@ void setup() {
     
 	// Always init SD card because we need to read init configuration file.
 	if (SD.begin(SD_CARD_SS_PIN)) {
-		if (DEBUG) SERIAL_MON.println(F("Initialization SD done."));
+		DEBUG_NL(F("Initialization SD done."))
 
         // Read initial config from file
         IniFile ini(SD_INI_CFG_FILENAME);                                 // IniFile configuration
@@ -653,7 +643,7 @@ void setup() {
         }
 	}
 	else {
-		if (DEBUG) SERIAL_MON.println(F("Initialization SD failed!"));
+		DEBUG_NL(F("Initialization SD failed!"))
 	}
 
     // If DEBUG is active and Serial not initialized, then start this
@@ -662,7 +652,7 @@ void setup() {
 
     // Inicialitza LCD en cas que n'hi haigui
 	if (LCD_enabled) {
-		if (DEBUG) SERIAL_MON.println(F("Initialization LCD.."));
+		DEBUG_NL(F("Initialization LCD.."))
 
 		lcd.init();
 		lcd.show_init_msg(LCD_INIT_MSG_L1, LCD_INIT_MSG_L2,
@@ -678,15 +668,15 @@ void setup() {
 
 	// Inicialitza RTC en cas de disposar
 	if (RTC_enabled) {
-		if (DEBUG) SERIAL_MON.print(F("Init RTC Clock.. "));
+		DEBUG_NN(F("Init RTC Clock.. "))
 		
 		// Try to initialize the RTC module
 		if (dateTimeRTC.begin()) {
-			if (DEBUG) SERIAL_MON.println(dateTimeRTC.getDateTime());     // RTC works. Print current time
+			DEBUG_NL(dateTimeRTC.getDateTime())                          // RTC works. Print current time
 		}
 		else {
             RTC_enabled = false;
-			if (DEBUG) SERIAL_MON.println(F("No clock working"));         // RTC does not work
+			DEBUG_NL(F("No clock working"))                              // RTC does not work
 		}
 	}
 }
@@ -712,9 +702,9 @@ void loop() {
 
         // Try to send the collected data to the remote broker
         if (send_data_mqtt_broker()) {
-            if (DEBUG) SERIAL_MON.println(F("OK"));
+            DEBUG_NL(F("OK"))
         } else {
-            if (DEBUG) SERIAL_MON.println(F("ERROR"));
+            DEBUG_NL(F("ERROR"))
         }
 
         if (LCD_enabled) {                                 // Update status on the screen
@@ -735,7 +725,7 @@ void loop() {
 
     // If the pH switch is active, perform the calibration iteration
     while (perf_pH_calib || digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH) {
-        if (DEBUG) SERIAL_MON.println(F("\n[!] Calibration switch active."));
+        DEBUG_NL(F("\n[!] Calibration switch active."))
         pH_calibration();
         
         if (perf_pH_calib) perf_pH_calib = false;

@@ -11,26 +11,18 @@
 
 extern bool DEBUG;
 
-
-/* Open Ini config file and check if it's in correct format */
 bool SD_check_IniFile(IniFile *ini) {
     char buffer[INI_FILE_BUFFER_LEN];
 
     if (!ini->open()) {
-        if (DEBUG) {
-            SERIAL_MON.print(F("Ini file "));
-            SERIAL_MON.print(ini->getFilename());
-            SERIAL_MON.println(F(" does not exist"));
-        }        
+        DEBUG_V3(F("Ini file "), ini->getFilename(), F(" does not exist"))
+        
         return false;
     }
 
     if (!ini->validate(buffer, sizeof(buffer))) {          // Check the file is valid
-        if (DEBUG) {
-            SERIAL_MON.print(F("Ini file "));
-            SERIAL_MON.print(ini->getFilename());
-            SERIAL_MON.print(F(" not valid: "));
-        }
+        DEBUG_V3(F("Ini file "), ini->getFilename(), F(" not valid: "))
+        
         return false;
     }
 
@@ -41,7 +33,7 @@ void SD_load_culture_ID(IniFile *ini, Culture_ID_st *culture_id) {
     char buffer[INI_FILE_BUFFER_LEN] = "";
     const char *section = "culture";
 
-    if (DEBUG) SERIAL_MON.println(F("Loading culture ID.."));
+    DEBUG_NL(F("Loading culture ID.."))
 
     if (ini->getValue(section, "country", buffer, sizeof(buffer)))
         strncpy(culture_id->country, buffer, 3);
@@ -73,7 +65,7 @@ void SD_load_MQTT_config(IniFile *ini, MQTT_Pub *&mqtt_pub, Culture_ID_st *cultu
         MQTT_BROKER_PSW
     };
     
-    if (DEBUG) SERIAL_MON.println(F("Loading MQTT conn. info.."));
+    DEBUG_NL(F("Loading MQTT conn. info.."))
 
     if (ini->getValue(section, "server", buffer, sizeof(buffer)))
         strncpy(mqtt_info.server, buffer, SERVER_MAX_NAME_SIZE);
@@ -93,29 +85,29 @@ void SD_load_MQTT_config(IniFile *ini, MQTT_Pub *&mqtt_pub, Culture_ID_st *cultu
 void SD_load_Cnn_type(IniFile *ini, Internet_cnn_type &option) {
    	char buffer[INI_FILE_BUFFER_LEN] = "";
     
-    if (DEBUG) SERIAL_MON.println(F("Loading connection type.."));
+    DEBUG_NL(F("Loading connection type.."))
 
     // Read the connection type
     if (ini->getValue("net", "cnn_type", buffer, sizeof(buffer))) {
         // Ethernet cnn type
         if (strcmp(buffer, "eth") == 0) {
             option = it_Ethernet;
-            if (DEBUG) Serial.println(F("  > Ethernet"));
+            DEBUG_NL(F("  > Ethernet"))
         }
         // GPRS cnn type
         else if (strcmp(buffer, "grps") == 0) {
             option = it_GPRS;
-            if (DEBUG) Serial.println(F("  > GPRS"));
+            DEBUG_NL(F("  > GPRS"))
         }
         // WiFi cnn type
         else if (strcmp(buffer, "wifi") == 0) {
             option = it_Wifi;
-            if (DEBUG) Serial.println(F("  > WiFi"));
+            DEBUG_NL(F("  > WiFi"))
         }
         // Undefined cnn type => no connection
         else {
             option = it_none;
-            if (DEBUG) Serial.println(F("  > (No selection)"));
+            DEBUG_NL(F("  > (No selection)"))
         }
     }
     
@@ -125,7 +117,7 @@ void SD_load_Cnn_type(IniFile *ini, Internet_cnn_type &option) {
 void SD_load_Eth_config(IniFile *ini, uint8_t *mac) {
    	char buffer[INI_FILE_BUFFER_LEN] = "";
     
-    if (DEBUG) SERIAL_MON.println(F("Loading Ethernet config.."));
+    DEBUG_NL(F("Loading Ethernet config.."))
 
     if (ini->getMACAddress("net", "eth_mac", buffer, sizeof(buffer), mac)) {
         if (DEBUG) {
@@ -147,7 +139,7 @@ void SD_load_DHT_sensors(IniFile *ini, DHT_Sensors* sensors) {
 	bool found;
 	uint8_t i = 1;
 
-	if (DEBUG) SERIAL_MON.println(F("Loading DHT sensors config.."));
+	DEBUG_NL(F("Loading DHT sensors config.."))
 	do {
 		sprintf(tag_sensor, "sensor%d.pin", i++);
 		found = ini->getValue("sensors:DHT", tag_sensor, buffer, sizeof(buffer));
@@ -163,7 +155,7 @@ void SD_load_DHT_sensors(IniFile *ini, DHT_Sensors* sensors) {
 
 	// If no configuration found in IniFile..
 	if (sensors->get_n_sensors() == 0) {
-		if (DEBUG) SERIAL_MON.println(F("No DHT config. found. Loading default.."));
+		DEBUG_NL(F("No DHT config. found. Loading default.."))
 		for (i=0; i<DHT_DEF_NUM_SENSORS; i++) {
 			if (DEBUG)  {
                 SERIAL_MON.print(F("  > Found config: sensor")); Serial.print(i+1);
@@ -177,7 +169,7 @@ void SD_load_DHT_sensors(IniFile *ini, DHT_Sensors* sensors) {
 void SD_load_DO_sensor(IniFile *ini, DO_Sensor* sensor) {
    	char buffer[INI_FILE_BUFFER_LEN] = "";
     
-    if (DEBUG) SERIAL_MON.println(F("Loading DO sensor config.."));
+    DEBUG_NL(F("Loading DO sensor config.."))
 
     // Read DO sensor address (hexadecimal format)
     if (ini->getValue("sensor:DO", "address", buffer, sizeof(buffer))) {
@@ -214,7 +206,7 @@ void SD_load_pH_sensors(IniFile *ini, PH_Sensors *&sensors) {
 	bool found;
 	uint8_t i = 1;
 
-	if (DEBUG) SERIAL_MON.println(F("Loading pH sensors config.."));
+	DEBUG_NL(F("Loading pH sensors config.."))
 	do {
 		sprintf(tag_sensor, "sensor%d.pin", i++);
 		found = ini->getValue("sensors:pH", tag_sensor, buffer, sizeof(buffer));
@@ -230,7 +222,7 @@ void SD_load_pH_sensors(IniFile *ini, PH_Sensors *&sensors) {
 
 	// If no configuration found in IniFile..
 	if (!sensors && PH_DEF_NUM_SENSORS > 0) {
-		if (DEBUG) SERIAL_MON.println(F("No pH config. found. Loading default.."));
+		DEBUG_NL(F("No pH config. found. Loading default.."))
 		for (i=0; i<PH_DEF_NUM_SENSORS; i++) {
             if (DEBUG) {
                 SERIAL_MON.print(F("  > Found config: sensor")); SERIAL_MON.print(i+1);
@@ -276,7 +268,7 @@ void SD_load_Lux_sensors(IniFile *ini, Lux_Sensors *&sensors) {
     uint8_t s_addr, s_addr_pin;
     Lux_Sensors::Lux_Sensor_model_t s_model;
 
-    if (DEBUG) SERIAL_MON.println(F("Loading Lux sensors config.."));
+    DEBUG_NL(F("Loading Lux sensors config.."))
     do {
 		sprintf(tag_sensor, "sensor%d", i++);
 		sens_cfg = ini->getValue("sensors:lux", tag_sensor, buffer, sizeof(buffer));
@@ -304,7 +296,7 @@ void SD_load_Lux_sensors(IniFile *ini, Lux_Sensors *&sensors) {
 
     // Load default configuration
     if (!sensors && LUX_SENS_DEF_NUM > 0) {
-        if (DEBUG) SERIAL_MON.println(F("No lux config found. Loading default.."));
+        DEBUG_NL(F("No lux config found. Loading default.."))
         sensors = new Lux_Sensors();
 
         for (uint8_t i=0; i<LUX_SENS_DEF_NUM; i++) {
@@ -326,7 +318,7 @@ void SD_load_ORP_sensors(IniFile *ini, ORP_Sensors *&sensors) {
 	bool found;
 	uint8_t i = 1;
     
-	if (DEBUG) SERIAL_MON.println(F("Loading ORP sensors config.."));
+	DEBUG_NL(F("Loading ORP sensors config.."))
 	do {
 		sprintf(tag_sensor, "sensor%d.addr", i++);
 		found = ini->getValue("sensors:ORP", tag_sensor, buffer, sizeof(buffer));
@@ -342,7 +334,7 @@ void SD_load_ORP_sensors(IniFile *ini, ORP_Sensors *&sensors) {
 
 	// If no configuration found in IniFile..
 	if (!sensors && ORP_DEF_NUM_SENSORS > 0) {
-		if (DEBUG) SERIAL_MON.println(F("No ORP config. found. Loading default.."));
+		DEBUG_NL(F("No ORP config. found. Loading default.."))
 		for (i=0; i<ORP_DEF_NUM_SENSORS; i++) {
             if (DEBUG) {
                 SERIAL_MON.print(F("  > Found config: sensor")); SERIAL_MON.print(i+1);
@@ -359,7 +351,7 @@ void SD_load_WP_Temp_sensors(IniFile *ini, WP_Temp_Sensors *&sensors) {
     uint8_t i=1, addr_s[8], addr_b[8];
 	uint16_t one_wire_pin;
 
-    if (DEBUG) SERIAL_MON.println(F("Loading WP temperature sensors config.."));
+    DEBUG_NL(F("Loading WP temperature sensors config.."))
     
     bool found = ini->getValue("sensors:wp_temp", "one_wire_pin",
                                 buffer, sizeof(buffer), one_wire_pin); // Load One Wire config
@@ -388,7 +380,7 @@ void SD_load_WP_Temp_sensors(IniFile *ini, WP_Temp_Sensors *&sensors) {
 
     // Load default configuration
     if (!sensors && WP_T_DEF_NUM_PAIRS > 0) {
-        if (DEBUG) SERIAL_MON.println(F("No WP config found. Loading default.."));
+        DEBUG_NL(F("No WP config found. Loading default.."))
         
         sensors = new WP_Temp_Sensors(WP_T_ONE_WIRE_PIN);
         for (i=0; i<WP_T_DEF_NUM_PAIRS; i++) {
@@ -438,7 +430,7 @@ void SD_load_Current_sensors(IniFile *ini, Current_Sensors *&sensors) {
     Current_Sensors::Current_Model_t s_model;
     uint16_t var;
 
-    if (DEBUG) SERIAL_MON.println(F("Loading Current sensors config.."));
+    DEBUG_NL(F("Loading Current sensors config.."))
     do {
 		sprintf(tag_sensor, "sensor%d", i++);
 		sens_cfg = ini->getValue("sensors:current", tag_sensor, buffer, sizeof(buffer));
@@ -456,7 +448,7 @@ void SD_load_Current_sensors(IniFile *ini, Current_Sensors *&sensors) {
 
     // Load default configuration
     if (!sensors && CURR_SENS_DEF_NUM > 0) {
-        if (DEBUG) SERIAL_MON.println(F("No current config found. Loading default.."));
+        DEBUG_NL(F("No current config found. Loading default.."))
         sensors = new Current_Sensors();
 
         for (uint8_t i=0; i<CURR_SENS_DEF_NUM; i++) {
@@ -507,7 +499,7 @@ void SD_load_WebServerActuators(IniFile *ini, EthernetServer *&web_server, OS_Ac
     const char *section = "actuators";
     
 
-    if (DEBUG) SERIAL_MON.println(F("Loading WebServer & actuators config.."));
+    DEBUG_NL(F("Loading WebServer & actuators config.."))
     
     // Load WebServer configurarion
     uint16_t srv_port = ACT_WEB_SRV_DEF_PORT;
@@ -549,7 +541,7 @@ void SD_load_WebServerActuators(IniFile *ini, EthernetServer *&web_server, OS_Ac
 
     // Load default configuration
     if (!actuators && ACT_DEV_DEF_NUM > 0) {
-        if (DEBUG) SERIAL_MON.println(F("No actuators config found. Loading default.."));
+        DEBUG_NL(F("No actuators config found. Loading default.."))
         actuators = new OS_Actuators();
 
         for (uint8_t i=0; i<ACT_DEV_DEF_NUM; i++) {

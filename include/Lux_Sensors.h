@@ -32,7 +32,7 @@ public:
     /**
      * Initialize the lux module
      * 
-     * @param addr  Indicates the address for BH1750 lux sensor 
+     * @param addr Indicates the address for BH1750 lux sensor 
      * @param addr_pin The pin that change the BH1750 address from 0x23 to 0x5C
      * @return returns true if module is initialize correctly, otherwise returns false 
      **/

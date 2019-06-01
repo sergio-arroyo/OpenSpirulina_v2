@@ -29,12 +29,12 @@ bool MQTT_Pub::broker_reconnect() {
 bool MQTT_Pub::publish_topic(const char *payload) {
     // If not connected to broker, try to reconnect
     if (!mqtt_cli.connected()) {
-        if (DEBUG) SERIAL_MON.println(F("[I] Not connected to broker, try to reconnect.."));
+        DEBUG_NL(F("[I] Not connected to broker, try to reconnect.."))
 
         if (broker_reconnect()) {
-            if (DEBUG) SERIAL_MON.println(F("OK"));
+            DEBUG_NL(F("OK"))
         } else {
-            if (DEBUG) SERIAL_MON.println(F("ERROR"));
+            DEBUG_NL(F("ERROR"))
 
             return false;
         }
