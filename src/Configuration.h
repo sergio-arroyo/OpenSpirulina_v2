@@ -14,7 +14,7 @@
 
 
 //===========================================================
-//======================= Serial debug ======================
+//====================== MCU  Version =======================
 //===========================================================
 #define OPENSPIRULINA_VER          "v2.0.2b"
 
@@ -29,7 +29,7 @@
 
 
 //===========================================================
-//======================= Serial debug ======================
+//========================== DEBUG ==========================
 //===========================================================
 #define DEBUG_DEF_ENABLED          1                       // Indicates whether serial debugging is enabled or not by default
 #define SERIAL_MON                 Serial                  // Serial output for debug console
@@ -203,15 +203,23 @@ const uint8_t ORP_DEF_ADDRS[] =    {0x62};                 // Array for default 
 //======================== Actuators ========================
 //===========================================================
 #define ACT_WEB_SRV_DEF_PORT       8080                    // Default Web Server port to listen actions petition
-#define ACT_WEBSRV_ACTION_STR      "GET /actuators"        // String petition triger on HTTP requests
+#define ACT_WEBSRV_ACTIONS_STR     F("/action?")           // VDir petition triger for actions on HTTP requests
+#define ACT_WEBSRV_STATUS_STR      F("/status")            // VDir petition triger for status on HTTP requests
 #define ACT_MAX_NUM_DEVICES        5                       // Maximum number of actuators that will be allowed
 #define ACT_MAX_DEV_ID_LEN         12                      // Actuator device ID max lenght
 
-#define ACT_DEV_DEF_NUM            2                       // Number of current actuators by default
-const uint8_t ACT_DEF_PINS[] = {35, 37};                   // Indicates the pin where the actuator is connected
+#define ACT_DEV_DEF_NUM            3                       // Number of current actuators by default
+const uint8_t ACT_DEF_PINS[] = {35, 37, 38};               // Indicates the pin where the actuator is connected
+
 static const char * const ACT_DEF_IDS[] =
-    {"agitator01", "agitator02"};                          // An identification tag for device. Def max. lenght = 12
-const uint16_t ACT_DEF_INI_VAL[] = {LOW, LOW};             // Indicates the initial value that the pin must have
+    {"agitator01", "agitator02", "agitator03"};            // An identification tag for device. Def max. lenght = 12
+const uint16_t ACT_DEF_INI_VAL[] = {LOW, LOW, LOW};        // Indicates the initial value that the pin must have
+
+#define ACT_RES_PROCESS_OK         0x00
+#define ACT_RES_PARAM_ERROR        0x01
+#define ACT_RES_ACT_UNDEF          0x02
+
+
 
 
 #endif

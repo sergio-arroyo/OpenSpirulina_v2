@@ -28,7 +28,11 @@ public:
 
     bool change_state(const char *dev_id, uint8_t value = 0xFF);
 
-    uint8_t check_device_state(const char *dev_id);
+    uint8_t get_device_state_by_id(const char *dev_id);
+
+    const char *get_device_id(uint8_t pos) const;
+
+    const uint8_t get_device_state(uint8_t pos) const;
 
     uint8_t get_n_devices();
 

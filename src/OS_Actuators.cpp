@@ -35,7 +35,7 @@ bool OS_Actuators::add_device(const char *dev_id, uint8_t dev_pin, uint8_t init_
 bool OS_Actuators::change_state(const char *dev_id, uint8_t value) {
     // find the position of the device
     int8_t pos = find_device_by_id(dev_id);
-
+    
     if (pos == -1)
         return false;                                      // Return false if device not found
     
@@ -52,7 +52,7 @@ bool OS_Actuators::change_state(const char *dev_id, uint8_t value) {
     return true;
 }
 
-uint8_t OS_Actuators::check_device_state(const char *dev_id) {
+uint8_t OS_Actuators::get_device_state_by_id(const char *dev_id) {
     // find the position of the device
     int8_t pos = find_device_by_id(dev_id);
 
@@ -60,6 +60,20 @@ uint8_t OS_Actuators::check_device_state(const char *dev_id) {
         return OS_ACTUATOR_NOT_DEF;                        // return device not found
 
     return digitalRead(devices[pos].pin);                  // return the read value (HIGH=0x1 / LOW=0x0)
+}
+
+const char *OS_Actuators::get_device_id(uint8_t pos) const {
+    if (pos >= n_devices)
+        return '\0';
+    
+    return devices[pos].id;
+}
+
+const uint8_t OS_Actuators::get_device_state(uint8_t pos) const {
+    if (pos >= n_devices)
+        return OS_ACTUATOR_NOT_DEF;
+    
+    return digitalRead(devices[pos].pin);
 }
 
 uint8_t OS_Actuators::get_n_devices() {

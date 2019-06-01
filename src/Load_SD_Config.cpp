@@ -505,6 +505,7 @@ bool extract_params_Actuator(char *str, uint8_t &dev_pin, char *dev_id, uint8_t 
 void SD_load_WebServerActuators(IniFile *ini, EthernetServer *&web_server, OS_Actuators *&actuators) {
 	char buffer[INI_FILE_BUFFER_LEN] = "";
     const char *section = "actuators";
+    
 
     if (DEBUG) SERIAL_MON.println(F("Loading WebServer & actuators config.."));
     
@@ -535,8 +536,9 @@ void SD_load_WebServerActuators(IniFile *ini, EthernetServer *&web_server, OS_Ac
 
 		if (found && extract_params_Actuator(buffer, dev_pin, dev_id, ini_val)) {
 			if (DEBUG) {
-                SERIAL_MON.print(F("  > Found config: ")); Serial.print(act_n);
-			    SERIAL_MON.print(F(". Pin = ")); SERIAL_MON.print(F(", Act. ID = "));
+                SERIAL_MON.print(F("  > Found config: ")); SERIAL_MON.print(act_n);
+			    SERIAL_MON.print(F(". Pin = ")); SERIAL_MON.print(dev_pin);
+                SERIAL_MON.print(F(", Act. ID = "));
                 SERIAL_MON.println(dev_id);
             }
 
