@@ -120,16 +120,15 @@ void SD_load_Eth_config(IniFile *ini, uint8_t *mac) {
     DEBUG_NL(F("Loading Ethernet config.."))
 
     if (ini->getMACAddress("net", "eth_mac", buffer, sizeof(buffer), mac)) {
-        if (DEBUG) {
-            SERIAL_MON.print(F("  > MAC addr found = "));
-            SERIAL_MON.println(buffer);
-        }
+        DEBUG_NL(F("  > Config. found"))
     } else {
+        DEBUG_NL(F("  > No config. found. Load default.."))
         memcpy(mac, ETH_MAC, 6);
-        if (DEBUG) {
-            SERIAL_MON.print(F("  > MAC addr found = "));
-            print_mac_address(mac);
-        }
+    }
+    
+    if (DEBUG) {
+        SERIAL_MON.print(F("  > MAC addr found = "));
+        print_mac_address(mac);
     }
 }
 

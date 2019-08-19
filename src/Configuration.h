@@ -16,7 +16,7 @@
 //===========================================================
 //====================== MCU  Version =======================
 //===========================================================
-#define OPENSPIRULINA_VER          "v2.0.2b"
+#define OPENSPIRULINA_VER          "v2.0.3b"
 
 
 //===========================================================
@@ -45,7 +45,7 @@
 //======================= Net options =======================
 //===========================================================
 #define ETH_SS_PIN                 10
-const uint8_t ETH_MAC[] = {0xA0,0x75,0xCB,0xD6,0x4D,0x64}; // MAC address for the ethernet controller
+const uint8_t ETH_MAC[] = {0xDE,0xAD,0xBE,0xEF,0xFE,0xED}; // MAC address for the ethernet controller
 const Internet_cnn_type NET_DEF_CNN_TYPE = it_none;
 
 #define TINY_GSM_MODEM_A6                                  // Select the GPRS modem

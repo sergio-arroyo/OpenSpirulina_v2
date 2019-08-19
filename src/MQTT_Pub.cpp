@@ -23,6 +23,11 @@ MQTT_Pub::MQTT_Pub(MQTT_Cnn_st *_mqtt_inf, Culture_ID_st *_culture_id)
 }
 
 bool MQTT_Pub::broker_reconnect() {
+    DEBUG_NL(F("[I] MQTT reconnect:"))
+    DEBUG_V2(F("  > ID : "), culture_id.host_id)
+    DEBUG_V2(F("  > Usr: "), mqtt_inf.usr)
+    DEBUG_V2(F("  > Psw: "), mqtt_inf.psw)
+    
     return mqtt_cli.connect(culture_id.host_id, mqtt_inf.usr, mqtt_inf.psw);
 }
 

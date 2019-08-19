@@ -70,7 +70,7 @@ Internet_cnn_type cnn_option = NET_DEF_CNN_TYPE;           // None | Ethernet | 
 uint8_t eth_mac[6] = {0,};                                 // MAC address for Ethernet W5100
 bool cnn_init = false;                                     // Indicates whether the connection is active
 
-char last_send[10];
+char last_send[10] = "";
 uint16_t loop_count = 0;                                   // Count reading cycles
 
 MQTT_Pub *mqtt_pub;                                        // MQTT publisher client control
@@ -133,11 +133,6 @@ void mostra_LCD() {
 
     if (CO2_DEF_NUM_SENSORS > 0)
         lcd.add_value_read("CO2:", array_CO2[0]);
-
-    if (strcmp(last_send,"") == 0) {                       // Show last send time
-        lcd.print_msg(0, 2, "Last: ");
-        lcd.print(last_send);
-    }
 }
 
 /* Capture data in calibration mode */
@@ -701,17 +696,25 @@ void loop() {
         if (DEBUG) SERIAL_MON.print(F("Sending data to server.. "));
 
         // Try to send the collected data to the remote broker
+        if (LCD_enabled) lcd.print_msg(0, 2, "Send: ");
+
         if (send_data_mqtt_broker()) {
             DEBUG_NL(F("OK"))
+            
+            if (LCD_enabled) lcd.print_msg(6, 2, "OK   ");                 // Show last send status
+
         } else {
             DEBUG_NL(F("ERROR"))
+
+            if (LCD_enabled) lcd.print_msg(6, 2, "ERROR");                 // Show last send status
         }
 
-        if (LCD_enabled) {                                 // Update status on the screen
+        if (RTC_enabled && LCD_enabled) {                                  // Update status on the screen
             dateTimeRTC.getTime(last_send);
-            mostra_LCD();
+            lcd.print_msg(12, 2, last_send);
         }
     }
+    
     WebServer_check_petition();                            // loop to check possible webserver petitions
 
     // Save data to SD card
