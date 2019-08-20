@@ -27,7 +27,7 @@ bool MQTT_Pub::broker_reconnect() {
     DEBUG_V2(F("  > ID : "), culture_id.host_id)
     DEBUG_V2(F("  > Usr: "), mqtt_inf.usr)
     DEBUG_V2(F("  > Psw: "), mqtt_inf.psw)
-    
+
     return mqtt_cli.connect(culture_id.host_id, mqtt_inf.usr, mqtt_inf.psw);
 }
 
@@ -52,27 +52,25 @@ bool MQTT_Pub::publish_topic(const char *payload) {
     str_tmp.concat(payload);                               // Adding fields
 
     if (DEBUG) {
-        SERIAL_MON.println(F("\nPublishing MQTT msg:"));
-        SERIAL_MON.print(F("  > Topic      = ")); SERIAL_MON.println(pub_topic);
-        SERIAL_MON.print(F("  > Payload    = ")); SERIAL_MON.println(str_tmp.c_str());
-        SERIAL_MON.print(F("  > Total size = "));
-        SERIAL_MON.println(MQTT_MAX_HEADER_SIZE + 2 + strlen(pub_topic) + str_tmp.length());
+        DEBUG_NL(F("\nPublishing MQTT msg:"))
+        DEBUG_V2(F("  > Topic      = "), pub_topic)
+        DEBUG_V2(F("  > Payload    = "), str_tmp.c_str())
+        DEBUG_V2(F("  > Total size = "), MQTT_MAX_HEADER_SIZE + 2 + strlen(pub_topic) + str_tmp.length())
 
         if (MQTT_MAX_PACKET_SIZE < MQTT_MAX_HEADER_SIZE + 2 
                 + strlen(pub_topic) + str_tmp.length())
         {
-            SERIAL_MON.print(F("[!] WARNING! topic+payload+2 > "));
-            SERIAL_MON.println(MQTT_MAX_PACKET_SIZE);
+            DEBUG_V2(F("[!] WARNING! topic+payload+2 > "), MQTT_MAX_PACKET_SIZE)
         }
     }
     
     if (!mqtt_cli.publish(pub_topic, str_tmp.c_str())) {
-        Serial.println(F("[E] ERROR sending topic"));
+        DEBUG_NL(F("[E] ERROR sending topic"))
 
         return false;
     }
 
-    Serial.println(F("[I] Topic sended OK"));
+    DEBUG_NL(F("[I] Topic sended OK"))
     
     return true;
 }
