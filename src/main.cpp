@@ -168,8 +168,7 @@ void SD_get_next_FileName(char* _fileName) {
 }
 
 /**
- * Compose a string with all the results obtained from the sensors in the specified
- * format
+ * Compose a string with all the results obtained from the sensors in specified format
  * 
  * @param str_out The string result with the specified format
  * @param print_tag Indicates whether the label of each sensor should be displayed

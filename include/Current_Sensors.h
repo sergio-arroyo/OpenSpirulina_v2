@@ -96,7 +96,7 @@ private:
 
     uint16_t v_ref;
     uint8_t n_sensors;
-    float arr_current[CURR_SENS_DEF_NUM];                  // Array of read currents
+    float arr_current[CURR_MAX_NUM_SENSORS];               // Array of read currents
 
     /** 
      * Obtain current value on specific invasive sensor ACS712
