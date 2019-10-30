@@ -143,18 +143,25 @@ void pH_calibration() {
     lcd.clear();                                           // Clear screen
     lcd.print(F("pH Calibration"));
     
-    if (pH_sensors && pH_sensors->get_n_sensors() > 0) {
-        lcd.setCursor(0, 1);                               // go to the 2nd line
-        lcd.print(F("pH1:"));
-        dtostrf(pH_sensors->get_sensor_value(0), 4, 2, buffer_L);
-        lcd.print(buffer_L);
-    }
-    
-    if (pH_sensors && pH_sensors->get_n_sensors() > 1) {
-        lcd.setCursor(0, 2);                               // go to the 3rd line
-        lcd.print(F("pH2:"));
-        dtostrf(pH_sensors->get_sensor_value(1), 4, 2, buffer_L);
-        lcd.print(buffer_L);
+    uint8_t n_sensors = pH_sensors->get_n_sensors();
+    while ( digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH ) {
+        
+        for (uint8_t i=0; i < n_sensors; i++) {
+            lcd.setCursor( (i<3)?0:10, i % 3);
+
+            // Show sensor ID
+            lcd.print(F("pH"));
+            dtostrf(pH_sensors->get_sensor_value(0), 4, 2, buffer_L);
+            lcd.print(buffer_L); lcd.print(F(":"));
+
+            // Convert readed value
+            dtostrf(pH_sensors->get_sensor_value(0), 4, 2, buffer_L);
+            lcd.print(buffer_L);
+
+            delay(30);
+        }
+        
+        delay(PH_MS_INTERVAL);
     }
 }
 
@@ -726,11 +733,10 @@ void loop() {
         perf_pH_calib = wait_time_no_RTC(DELAY_SECS_NEXT_READ);
 
     // If the pH switch is active, perform the calibration iteration
-    while (perf_pH_calib || digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH) {
+    if (perf_pH_calib || digitalRead(PH_CALIBRATION_SWITCH_PIN) == HIGH) {
         DEBUG_NL(F("\n[!] Calibration switch active."))
-        pH_calibration();
-        
+
         if (perf_pH_calib) perf_pH_calib = false;
-        delay(10000);
+        pH_calibration();
     }
 }

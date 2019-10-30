@@ -152,6 +152,7 @@ const uint8_t LUX_SENS_DEF_ADDR_PIN[] = {34, 0};
 const uint8_t PH_DEF_PIN_SENSORS[] = {OPENSPIR_SHIELD_J1}; // Array for default pins for pH sensors
 #define PH_MAX_NUM_SENSORS         3                       // Maximum number of pH sensors that can be connected
 #define PH_SENS_N_SAMP_READ        10                      // Number of samples read from sensor
+#define PH_MS_INTERVAL             1000                    // Time (in ms) between pH readings
 
 
 //===========================================================
